@@ -74,7 +74,18 @@ export interface ProjectData {
   galianAksesProgress: string; // "Galian Akses Progress"
   galianCrossingProgress: string; // "Galian Crossing Progress"
   installHhProgress: string; // "Install HH Progress"
+  installHhType?: string; // HH, HB, MH
+  installHhSize?: string; // 80x80, 90x90, 100x100, 110x110, 120x120
+  installHhQty?: number | string; // Unit
+  installPoleType?: string; // Tiang 8, Tiang 9
+  installPoleQty?: number | string; // Ea
+  installGalvanisSize?: string; // 2", 4", 6"
+  installGalvanisLength?: number | string; // Meter
   installPoleProgress: string; // "Install Pole Progress"
+  galianPanjangSelesai?: number | string; // Meter galian selesai
+  galianPanjangTotal?: number | string; // Total meter target galian
+  pullingPanjangSelesai?: number | string; // Meter pulling selesai
+  pullingPanjangTotal?: number | string; // Total meter target pulling
   pullingCableProgress: string; // "Pulling Cable Progress"
   projectSapId: string; // "Project SAP ID", e.g. GOV0000747
   remarksConstruction: string; // "Remarks" in Tab 4

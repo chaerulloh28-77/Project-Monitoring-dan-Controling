@@ -15,6 +15,26 @@ import {
 } from 'lucide-react';
 import { ProjectData, ColumnDefinition, TabKey, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
 import { TabVisualIcon } from './TabVisualIcon';
+import {
+  ZONA_OPTIONS,
+  TAHUN_OPTIONS,
+  APD_RELOKASI_OPTIONS,
+  KMZ_RELOKASI_OPTIONS,
+  APD_LINKNET_OPTIONS,
+  STATUS_SURVEY_OPTIONS,
+  BA_SURVEY_OPTIONS,
+  SPH_BOQ_OPTIONS,
+  STATUS_PENGAJUAN_PROJECT_OPTIONS,
+  PLAN_PENGAMBILAN_MATERIAL_OPTIONS,
+  STATUS_MATERIAL_LOCATION_OPTIONS,
+  STATUS_DOKUMEN_CLOSING_OPTIONS,
+  STATUS_MATERIAL_OPTIONS,
+  STATUS_PULLING_CABLE_FO_OPTIONS,
+  STATUS_PULLING_CABLE_COAX_OPTIONS,
+  STATUS_CO_OPTIONS,
+  LAPORAN_OPNAME_OPTIONS,
+  CLOSING_SAP_OPTIONS,
+} from '../data/dropdownOptions';
 
 interface TableViewProps {
   columns: ColumnDefinition[];
@@ -111,20 +131,33 @@ export const TableView: React.FC<TableViewProps> = ({
       case 'In Progress':
       case 'Pulling Cable':
       case 'Released':
+      case 'Release':
       case 'Approved':
       case 'Done':
+      case 'Done survey':
+      case 'Ada':
       case 'Sudah Audit':
       case 'Sudah BA':
+      case 'Approval completed SAP':
+      case 'Approval BALAP':
+      case 'Approval BAST':
+      case 'Teco done':
         return 'text-emerald-700 bg-emerald-50 border border-emerald-200/60 font-medium';
       case 'Masih Review Dinas':
       case 'Not Yet':
       case 'Belum':
+      case 'Belum ada':
       case 'Belum di Audit':
       case 'Belum ada BA':
+      case 'Request':
+      case 'Submit':
+      case 'Submit dokumen SAP':
+      case 'Completed waspang mobility':
       case 'Drafting':
         return 'text-amber-700 bg-amber-50 border border-amber-200/60 font-medium';
       case 'Cancelled':
       case 'Project Cancel':
+      case 'No need MR':
       case 'No Need MR':
       case 'No Need PO':
         return 'text-rose-700 bg-rose-50 border border-rose-200/60 font-medium';
@@ -380,10 +413,316 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
-                              {['Jabo 1', 'Jabo 2', 'Jabo 3'].map((z) => (
+                              {ZONA_OPTIONS.map((z) => (
                                 <option key={z} value={z}>
                                   {z}
                                 </option>
+                              ))}
+                            </select>
+                          ) : col.key === 'tahun' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {TAHUN_OPTIONS.map((y) => (
+                                <option key={y} value={y}>{y}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'apdRelokasi' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {APD_RELOKASI_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'kmzRelokasi' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {KMZ_RELOKASI_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'apdLinknet' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {APD_LINKNET_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusSurvey' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_SURVEY_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'baSurvey' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {BA_SURVEY_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'sphBoq' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {SPH_BOQ_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusPengajuanProject' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_PENGAJUAN_PROJECT_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'planPengambilanMaterial' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {PLAN_PENGAMBILAN_MATERIAL_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusMaterialLocation' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_MATERIAL_LOCATION_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusDokumenClosing' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_DOKUMEN_CLOSING_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusMaterial' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_MATERIAL_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusPullingCableFo' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_PULLING_CABLE_FO_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusPullingCableCoax' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_PULLING_CABLE_COAX_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusCo' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_CO_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'laporanOpname' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {LAPORAN_OPNAME_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'closingSap' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {CLOSING_SAP_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
                               ))}
                             </select>
                           ) : col.key === 'quarter' ? (

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, X, Filter, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { ProjectData, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
+import { ZONA_OPTIONS } from '../data/dropdownOptions';
 
 interface FilterBarProps {
   searchTerm: string;
@@ -53,7 +54,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   
   // Standardized options for Category, Zona, Quarter & PIC as requested
   const categoryOptions = ['GOV IPPJU', 'GOV APJATEL', 'GOV SJUT'];
-  const zonaOptions = ['Jabo 1', 'Jabo 2', 'Jabo 3'];
+  const zonaOptions = ZONA_OPTIONS;
   const quarterOptions = ['Q1-26', 'Q2-26', 'Q3-26', 'Q4-26'];
   const picOptions = PIC_SECTION_HEAD_OPTIONS;
 

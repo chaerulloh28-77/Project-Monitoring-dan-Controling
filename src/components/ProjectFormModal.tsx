@@ -16,6 +16,32 @@ import {
   GitCommit
 } from 'lucide-react';
 import { ProjectData, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
+import {
+  ZONA_OPTIONS,
+  TAHUN_OPTIONS,
+  APD_RELOKASI_OPTIONS,
+  KMZ_RELOKASI_OPTIONS,
+  APD_LINKNET_OPTIONS,
+  STATUS_SURVEY_OPTIONS,
+  BA_SURVEY_OPTIONS,
+  SPH_BOQ_OPTIONS,
+  STATUS_PENGAJUAN_PROJECT_OPTIONS,
+  PLAN_PENGAMBILAN_MATERIAL_OPTIONS,
+  STATUS_MATERIAL_LOCATION_OPTIONS,
+  STATUS_DOKUMEN_CLOSING_OPTIONS,
+  STATUS_MATERIAL_OPTIONS,
+  STATUS_PULLING_CABLE_FO_OPTIONS,
+  STATUS_PULLING_CABLE_COAX_OPTIONS,
+  STATUS_CO_OPTIONS,
+  LAPORAN_OPNAME_OPTIONS,
+  CLOSING_SAP_OPTIONS,
+  HH_TYPE_OPTIONS,
+  HH_SIZE_OPTIONS,
+  POLE_OPTIONS,
+  GALVANIS_OPTIONS,
+  calculateGalianPercentage,
+  calculatePullingPercentage,
+} from '../data/dropdownOptions';
 
 interface ProjectFormModalProps {
   isOpen: boolean;
@@ -127,10 +153,87 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   if (!isOpen) return null;
 
   const handleChange = (field: keyof ProjectData, value: unknown) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        [field]: value,
+      };
+
+      // Auto-compute Galian Sipil Progress if galian parameters or status changed
+      if (
+        field === 'statusConstruction' ||
+        field === 'galianPanjangSelesai' ||
+        field === 'galianPanjangTotal' ||
+        field === 'panjangRelokasi'
+      ) {
+        const totalTarget = Number(updated.galianPanjangTotal || updated.panjangRelokasi || 0);
+        const doneMeters = Number(updated.galianPanjangSelesai || 0);
+        if (totalTarget > 0 && doneMeters > 0) {
+          const pct = Math.min(100, Math.round((doneMeters / totalTarget) * 100));
+          updated.galianSipilProgress = `${pct}%`;
+        } else {
+          updated.galianSipilProgress = calculateGalianPercentage(
+            updated.statusConstruction || 'Project Not Started',
+            updated.galianSipilProgress
+          );
+        }
+      }
+
+      // Auto-compute Pulling Cable Progress from FO & Coax statuses & length
+      if (
+        field === 'statusPullingCableFo' ||
+        field === 'statusPullingCableCoax' ||
+        field === 'statusConstruction' ||
+        field === 'pullingPanjangSelesai' ||
+        field === 'pullingPanjangTotal' ||
+        field === 'panjangRelokasi'
+      ) {
+        const totalTarget = Number(updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
+        const doneMeters = Number(updated.pullingPanjangSelesai || 0);
+        if (totalTarget > 0 && doneMeters > 0) {
+          const pct = Math.min(100, Math.round((doneMeters / totalTarget) * 100));
+          updated.pullingCableProgress = `${pct}%`;
+        } else {
+          updated.pullingCableProgress = calculatePullingPercentage(
+            updated.statusPullingCableFo || 'Not Yet',
+            updated.statusPullingCableCoax || 'Not Yet',
+            updated.statusConstruction
+          );
+        }
+      }
+
+      // Auto-generate installHhProgress label from specifications if edited
+      if (field === 'installHhType' || field === 'installHhSize' || field === 'installHhQty') {
+        const type = updated.installHhType || 'HH';
+        const size = updated.installHhSize || '80x80';
+        const qty = updated.installHhQty ? `${updated.installHhQty} Unit` : '';
+        if (qty) {
+          updated.installHhProgress = `${type} ${size} (${qty})`;
+        }
+      }
+
+      // Auto-generate installPoleProgress label from pole & galvanis specifications if edited
+      if (
+        field === 'installPoleType' ||
+        field === 'installPoleQty' ||
+        field === 'installGalvanisSize' ||
+        field === 'installGalvanisLength'
+      ) {
+        const poleType = updated.installPoleType || 'Tiang 8';
+        const poleQty = updated.installPoleQty ? `${updated.installPoleQty} Ea` : '';
+        const galvSize = updated.installGalvanisSize || '2"';
+        const galvLen = updated.installGalvanisLength ? `${updated.installGalvanisLength}m` : '';
+        const parts = [];
+        if (poleQty) parts.push(`${poleType} (${poleQty})`);
+        if (galvLen) parts.push(`Galv ${galvSize} (${galvLen})`);
+        if (parts.length > 0) {
+          updated.installPoleProgress = parts.join(' + ');
+        }
+      }
+
+      return updated;
+    });
+
     // Clear error for field if any
     if (errors[field]) {
       setErrors((prev) => {
@@ -343,9 +446,11 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     onChange={(e) => handleChange('zona', e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer font-medium"
                   >
-                    <option value="Jabo 1">Jabo 1</option>
-                    <option value="Jabo 2">Jabo 2</option>
-                    <option value="Jabo 3">Jabo 3 / Jobo 3</option>
+                    {ZONA_OPTIONS.map((z) => (
+                      <option key={z} value={z}>
+                        {z}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -460,13 +565,15 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Tahun</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.tahun || '2024'}
                     onChange={(e) => handleChange('tahun', e.target.value)}
-                    placeholder="e.g. 2024"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono cursor-pointer"
+                  >
+                    {TAHUN_OPTIONS.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -484,24 +591,28 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">APD Relokasi</label>
-                  <input
-                    type="text"
-                    value={formData.apdRelokasi || ''}
+                  <select
+                    value={formData.apdRelokasi || 'Belum ada'}
                     onChange={(e) => handleChange('apdRelokasi', e.target.value)}
-                    placeholder="e.g. Belum, Sudah"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {APD_RELOKASI_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">KMZ Relokasi</label>
-                  <input
-                    type="text"
-                    value={formData.kmzRelokasi || ''}
+                  <select
+                    value={formData.kmzRelokasi || 'Belum ada'}
                     onChange={(e) => handleChange('kmzRelokasi', e.target.value)}
-                    placeholder="e.g. Belum, Ada"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {KMZ_RELOKASI_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -519,46 +630,54 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">APD Linknet</label>
-                  <input
-                    type="text"
-                    value={formData.apdLinknet || ''}
+                  <select
+                    value={formData.apdLinknet || 'Not Yet'}
                     onChange={(e) => handleChange('apdLinknet', e.target.value)}
-                    placeholder="e.g. Not Yet, Done"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {APD_LINKNET_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Survey</label>
-                  <input
-                    type="text"
-                    value={formData.statusSurvey || ''}
+                  <select
+                    value={formData.statusSurvey || 'Not Yet'}
                     onChange={(e) => handleChange('statusSurvey', e.target.value)}
-                    placeholder="e.g. Belum, Selesai"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_SURVEY_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">BA Survey</label>
-                  <input
-                    type="text"
-                    value={formData.baSurvey || ''}
+                  <select
+                    value={formData.baSurvey || 'Not Yet'}
                     onChange={(e) => handleChange('baSurvey', e.target.value)}
-                    placeholder="e.g. Belum ada BA, Sudah BA"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {BA_SURVEY_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">SPH / BOQ</label>
-                  <input
-                    type="text"
-                    value={formData.sphBoq || ''}
+                  <select
+                    value={formData.sphBoq || 'Not Yet'}
                     onChange={(e) => handleChange('sphBoq', e.target.value)}
-                    placeholder="e.g. SPH-401"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {SPH_BOQ_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -627,13 +746,15 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pengajuan Project</label>
-                  <input
-                    type="text"
-                    value={formData.statusPengajuanProject || ''}
+                  <select
+                    value={formData.statusPengajuanProject || 'Not Yet'}
                     onChange={(e) => handleChange('statusPengajuanProject', e.target.value)}
-                    placeholder="e.g. NOSA, Project Cancel"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_PENGAJUAN_PROJECT_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -714,35 +835,41 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Plan Pengambilan Material</label>
-                  <input
-                    type="text"
-                    value={formData.planPengambilanMaterial || ''}
+                  <select
+                    value={formData.planPengambilanMaterial || 'Warehouse LN'}
                     onChange={(e) => handleChange('planPengambilanMaterial', e.target.value)}
-                    placeholder="e.g. Warehouse Cikupa"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {PLAN_PENGAMBILAN_MATERIAL_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Material Location</label>
-                  <input
-                    type="text"
-                    value={formData.statusMaterialLocation || ''}
+                  <select
+                    value={formData.statusMaterialLocation || 'Warehouse CKT'}
                     onChange={(e) => handleChange('statusMaterialLocation', e.target.value)}
-                    placeholder="e.g. On Site, Warehouse"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_MATERIAL_LOCATION_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Dokumen Closing</label>
-                  <input
-                    type="text"
-                    value={formData.statusDokumenClosing || ''}
+                  <select
+                    value={formData.statusDokumenClosing || 'Completed waspang mobility'}
                     onChange={(e) => handleChange('statusDokumenClosing', e.target.value)}
-                    placeholder="e.g. In Progress, Completed"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_DOKUMEN_CLOSING_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -784,70 +911,82 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Material</label>
-                  <input
-                    type="text"
-                    value={formData.statusMaterial || ''}
+                  <select
+                    value={formData.statusMaterial || 'Not Yet'}
                     onChange={(e) => handleChange('statusMaterial', e.target.value)}
-                    placeholder="e.g. N/A, Released, No Need MR"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_MATERIAL_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pulling Cable FO</label>
-                  <input
-                    type="text"
-                    value={formData.statusPullingCableFo || ''}
+                  <select
+                    value={formData.statusPullingCableFo || 'Not Yet'}
                     onChange={(e) => handleChange('statusPullingCableFo', e.target.value)}
-                    placeholder="e.g. In Progress, Done"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer font-medium"
+                  >
+                    {STATUS_PULLING_CABLE_FO_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pulling Cable Coax</label>
-                  <input
-                    type="text"
-                    value={formData.statusPullingCableCoax || ''}
+                  <select
+                    value={formData.statusPullingCableCoax || 'Not Yet'}
                     onChange={(e) => handleChange('statusPullingCableCoax', e.target.value)}
-                    placeholder="e.g. Done, In Progress"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer font-medium"
+                  >
+                    {STATUS_PULLING_CABLE_COAX_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status CO</label>
-                  <input
-                    type="text"
-                    value={formData.statusCo || ''}
+                  <select
+                    value={formData.statusCo || 'Not Yet'}
                     onChange={(e) => handleChange('statusCo', e.target.value)}
-                    placeholder="e.g. In Progress, Done"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_CO_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Laporan Opname</label>
-                  <input
-                    type="text"
-                    value={formData.laporanOpname || ''}
+                  <select
+                    value={formData.laporanOpname || 'Not Yet'}
                     onChange={(e) => handleChange('laporanOpname', e.target.value)}
-                    placeholder="e.g. Not Yet, Done"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {LAPORAN_OPNAME_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Closing SAP</label>
-                  <input
-                    type="text"
-                    value={formData.closingSap || ''}
+                  <select
+                    value={formData.closingSap || 'Not Yet'}
                     onChange={(e) => handleChange('closingSap', e.target.value)}
-                    placeholder="e.g. In Progress, Yes, No"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {CLOSING_SAP_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -862,38 +1001,208 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Galian Sipil Progress</label>
-                  <input
-                    type="text"
-                    value={formData.galianSipilProgress || ''}
-                    onChange={(e) => handleChange('galianSipilProgress', e.target.value)}
-                    placeholder="e.g. 80%, Selesai"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+              {/* Install HH & Pole Progress Configurator */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <HardHat className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Spesifikasi Install HH, Pole & Galvanis</span>
+                  </h4>
+                  <span className="text-[11px] font-mono text-sky-700 font-semibold bg-sky-100/60 px-2 py-0.5 rounded">
+                    {formData.installHhProgress || 'Belum dikonfigurasi'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Install HH & Pole Progress</label>
-                  <input
-                    type="text"
-                    value={formData.installHhProgress || ''}
-                    onChange={(e) => handleChange('installHhProgress', e.target.value)}
-                    placeholder="e.g. 12/12 HH"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* 1. HH, HB, MH (Unit) */}
+                  <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-700">1. HH, HB, MH (Unit)</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <select
+                        value={formData.installHhType || 'HH'}
+                        onChange={(e) => handleChange('installHhType', e.target.value)}
+                        className="px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      >
+                        {HH_TYPE_OPTIONS.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={formData.installHhSize || '80x80'}
+                        onChange={(e) => handleChange('installHhSize', e.target.value)}
+                        className="px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                      >
+                        {HH_SIZE_OPTIONS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.installHhQty || ''}
+                        onChange={(e) => handleChange('installHhQty', e.target.value)}
+                        placeholder="Jumlah"
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono"
+                      />
+                      <span className="text-[11px] text-slate-500 font-medium">Unit</span>
+                    </div>
+                  </div>
+
+                  {/* 2. Pole (Ea) */}
+                  <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-700">2. Pole (Ea)</label>
+                    <select
+                      value={formData.installPoleType || 'Tiang 8'}
+                      onChange={(e) => handleChange('installPoleType', e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    >
+                      {POLE_OPTIONS.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.installPoleQty || ''}
+                        onChange={(e) => handleChange('installPoleQty', e.target.value)}
+                        placeholder="Jumlah"
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono"
+                      />
+                      <span className="text-[11px] text-slate-500 font-medium">Ea</span>
+                    </div>
+                  </div>
+
+                  {/* 3. Galvanis (Meter) */}
+                  <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-700">3. Galvanis (meter)</label>
+                    <select
+                      value={formData.installGalvanisSize || '2"'}
+                      onChange={(e) => handleChange('installGalvanisSize', e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                    >
+                      {GALVANIS_OPTIONS.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.installGalvanisLength || ''}
+                        onChange={(e) => handleChange('installGalvanisLength', e.target.value)}
+                        placeholder="Panjang"
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono"
+                      />
+                      <span className="text-[11px] text-slate-500 font-medium">Meter</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pulling Cable Progress</label>
-                  <input
-                    type="text"
-                    value={formData.pullingCableProgress || ''}
-                    onChange={(e) => handleChange('pullingCableProgress', e.target.value)}
-                    placeholder="e.g. 65%"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Label Ringkasan Install HH</label>
+                    <input
+                      type="text"
+                      value={formData.installHhProgress || ''}
+                      onChange={(e) => handleChange('installHhProgress', e.target.value)}
+                      placeholder="e.g. HH 80x80 (12 Unit)"
+                      className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded focus:outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Label Ringkasan Install Pole & Galvanis</label>
+                    <input
+                      type="text"
+                      value={formData.installPoleProgress || ''}
+                      onChange={(e) => handleChange('installPoleProgress', e.target.value)}
+                      placeholder="e.g. Tiang 8 (10 Ea) + Galv 2 (50m)"
+                      className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Automatic Progress Calculators (Galian & Pulling) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Auto Calculated Galian Sipil Progress */}
+                <div className="p-3 bg-indigo-50/70 border border-indigo-200/90 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                      <span>Galian Sipil Progress (Otomatis)</span>
+                    </label>
+                    <span className="px-2.5 py-0.5 text-xs font-bold font-mono bg-indigo-600 text-white rounded-full">
+                      {formData.galianSipilProgress || '0%'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Meter Selesai</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.galianPanjangSelesai || ''}
+                        onChange={(e) => handleChange('galianPanjangSelesai', e.target.value)}
+                        placeholder="e.g. 800"
+                        className="w-full px-2 py-1 text-xs border border-indigo-300 rounded bg-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Total Target Meter</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.galianPanjangTotal || formData.panjangRelokasi || ''}
+                        onChange={(e) => handleChange('galianPanjangTotal', e.target.value)}
+                        placeholder="e.g. 1000"
+                        className="w-full px-2 py-1 text-xs border border-indigo-300 rounded bg-white font-mono"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-indigo-700">
+                    Sistem otomatis menghitung persentase dari perbandingan meter atau status tahapan konstruksi.
+                  </p>
+                </div>
+
+                {/* Auto Calculated Pulling Cable Progress */}
+                <div className="p-3 bg-purple-50/70 border border-purple-200/90 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                      <span>Pulling Cable Progress (Otomatis)</span>
+                    </label>
+                    <span className="px-2.5 py-0.5 text-xs font-bold font-mono bg-purple-600 text-white rounded-full">
+                      {formData.pullingCableProgress || '0%'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Meter Selesai</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pullingPanjangSelesai || ''}
+                        onChange={(e) => handleChange('pullingPanjangSelesai', e.target.value)}
+                        placeholder="e.g. 650"
+                        className="w-full px-2 py-1 text-xs border border-purple-300 rounded bg-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Total Target Meter</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pullingPanjangTotal || formData.panjangRelokasi || ''}
+                        onChange={(e) => handleChange('pullingPanjangTotal', e.target.value)}
+                        placeholder="e.g. 1000"
+                        className="w-full px-2 py-1 text-xs border border-purple-300 rounded bg-white font-mono"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-purple-700">
+                    Dihitung otomatis dari status Pulling FO ({formData.statusPullingCableFo || 'Not Yet'}) & COAX ({formData.statusPullingCableCoax || 'Not Yet'}).
+                  </p>
                 </div>
               </div>
 
@@ -941,13 +1250,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Closing SAP</label>
                   <select
-                    value={formData.closingSap || 'No'}
+                    value={formData.closingSap || 'Not Yet'}
                     onChange={(e) => handleChange('closingSap', e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
                   >
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                    <option value="In Progress">In Progress</option>
+                    {CLOSING_SAP_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
                   </select>
                 </div>
               </div>

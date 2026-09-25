@@ -129,19 +129,19 @@ export const PipelineBoard: React.FC<PipelineBoardProps> = ({
 
   // Helper to determine which stage a project belongs to
   const getStageForProject = (project: ProjectData): string => {
-    if (project.projectStatus === 'Cancelled' || project.statusConstruction === 'Project Cancel') {
+    if (project.projectStatus === 'Cancelled' || project.statusConstruction === 'Project Cancel' || project.statusPengajuanProject === 'Project Cancel') {
       return 'stage-cancelled';
     }
-    if (project.statusCo === 'Done' || project.projectStatus === 'Completed' || project.closingSap === 'Yes') {
+    if (project.statusCo === 'Done' || project.projectStatus === 'Completed' || project.closingSap === 'Done' || project.closingSap === 'Yes') {
       return 'stage-closing';
     }
-    if (project.statusConstruction === 'Pulling Cable' || project.statusPullingCableFo === 'In Progress') {
+    if (project.statusConstruction === 'Pulling Cable' || project.statusPullingCableFo === 'In Progress' || project.statusPullingCableFo === 'Done') {
       return 'stage-pulling';
     }
     if (project.galianSipilProgress && project.galianSipilProgress !== '0%') {
       return 'stage-civil';
     }
-    if (project.statusPengajuanMr === 'Released' || project.statusPengajuanPo === 'Released') {
+    if (project.statusPengajuanMr === 'Released' || project.statusPengajuanPo === 'Released' || project.statusPengajuanProject === 'Release' || project.statusPengajuanProject === 'Approved') {
       return 'stage-procurement';
     }
     return 'stage-review';

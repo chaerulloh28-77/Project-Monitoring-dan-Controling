@@ -30,10 +30,28 @@ export const storageService = {
             pic = 'Aris';
           }
 
+          // Normalize zona
+          let zona = p.zona;
+          if (zona === 'Jobo 3' || zona === 'Jabo 3 / Jobo 3') {
+            zona = 'Jabo 3';
+          }
+
+          // Normalize APD & KMZ Relokasi
+          let apdRel = p.apdRelokasi;
+          if (apdRel === 'Belum') apdRel = 'Belum ada';
+          if (apdRel === 'Sudah') apdRel = 'Ada';
+
+          let kmzRel = p.kmzRelokasi;
+          if (kmzRel === 'Belum') kmzRel = 'Belum ada';
+          if (kmzRel === 'Sudah') kmzRel = 'Ada';
+
           return {
             ...p,
             projectCategory: cat || 'GOV IPPJU',
             picSectionHead: pic,
+            zona: zona || 'Jabo 1',
+            apdRelokasi: apdRel || 'Belum ada',
+            kmzRelokasi: kmzRel || 'Belum ada',
           };
         });
         return normalized;

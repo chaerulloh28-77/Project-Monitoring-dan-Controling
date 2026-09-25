@@ -19,6 +19,7 @@ import {
   AlignJustify
 } from 'lucide-react';
 import { ProjectData, TabKey } from './types/project';
+import { calculateGalianPercentage, calculatePullingPercentage } from './data/dropdownOptions';
 import { 
   PROJECT_LIST_COLUMNS, 
   CONSTRUCTION_PLAN_COLUMNS, 
@@ -210,11 +211,37 @@ export default function App() {
   const handleQuickUpdateCell = (projectId: string, field: keyof ProjectData, value: string) => {
     const updated = projects.map((p) => {
       if (p.id === projectId) {
-        return {
+        const item: ProjectData = {
           ...p,
           [field]: value,
           updatedAt: new Date().toISOString(),
         };
+
+        // Auto-recalculate Galian Progress if statusConstruction or galian progress is updated
+        if (field === 'statusConstruction' || field === 'galianSipilProgress') {
+          item.galianSipilProgress = calculateGalianPercentage(
+            item.statusConstruction,
+            field === 'galianSipilProgress' ? value : item.galianSipilProgress
+          );
+        }
+
+        // Auto-recalculate Pulling Cable Progress if FO/COAX or status construction is updated
+        if (
+          field === 'statusPullingCableFo' ||
+          field === 'statusPullingCableCoax' ||
+          field === 'statusConstruction' ||
+          field === 'pullingCableProgress'
+        ) {
+          if (field !== 'pullingCableProgress') {
+            item.pullingCableProgress = calculatePullingPercentage(
+              item.statusPullingCableFo,
+              item.statusPullingCableCoax,
+              item.statusConstruction
+            );
+          }
+        }
+
+        return item;
       }
       return p;
     });
