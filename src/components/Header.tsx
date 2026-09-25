@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Project Monitoring dan Controling
                 </h1>
                 <span className="hidden md:inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-sky-500/15 text-sky-300 rounded-md border border-sky-400/25">
-                  Telecom Relocation Ops
+                  © PAUL
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-0.5">

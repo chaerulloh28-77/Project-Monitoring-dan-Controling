@@ -164,6 +164,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             <div className="p-2 rounded bg-slate-800/60 border border-slate-700/60 text-[10px] text-slate-400">
               <span className="text-emerald-400 font-semibold">● Auto-Save Aktif</span>
               <p className="mt-0.5 text-slate-400 line-clamp-1">Data 5 tab saling terhubung</p>
+              <p className="mt-1 pt-1 border-t border-slate-700/50 text-[10px] text-slate-400 font-medium tracking-wide">
+                © PAUL
+              </p>
             </div>
           </div>
         ) : (

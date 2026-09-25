@@ -519,8 +519,19 @@ export default function App() {
             onQuickUpdateCell={handleQuickUpdateCell}
           />
         )}
-          </div>
-        </main>
+          {/* Footer Copyright */}
+          <footer className="mt-8 mb-4 pt-4 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700">Project Monitoring dan Controling</span>
+              <span>•</span>
+              <span className="font-medium text-sky-700">© PAUL</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Hak Cipta Dilindungi Undang-Undang
+            </p>
+          </footer>
+        </div>
+      </main>
       </div>
 
       {/* 4. CRUD Modals & Drawers */}
