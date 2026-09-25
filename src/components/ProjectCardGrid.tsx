@@ -203,6 +203,15 @@ export const ProjectCardGrid: React.FC<ProjectCardGridProps> = ({
                 </div>
               )}
 
+              {activeTab === 'project-tracking-pipeline' && (
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Pipeline Progress:</span>
+                  <span className="font-semibold text-purple-700">
+                    Pulling: {proj.pullingCableProgress || '-'} · SAP: {proj.closingSap || 'No'}
+                  </span>
+                </div>
+              )}
+
               {/* PIC Section Head */}
               <div className="flex items-center justify-between pt-1">
                 <span className="flex items-center gap-1.5 text-slate-400 text-[11px]">

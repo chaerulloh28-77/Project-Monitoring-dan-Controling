@@ -12,7 +12,8 @@ import {
   HardHat,
   FileCheck2,
   Activity,
-  AlertCircle
+  AlertCircle,
+  GitCommit
 } from 'lucide-react';
 import { ProjectData, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
 
@@ -182,7 +183,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 {initialData ? `Edit Project: ${initialData.pmoId}` : 'Tambah Project Baru'}
               </h2>
               <p className="text-xs text-slate-500">
-                Sistem 4 Tab Sheet Terintegrasi · Simpan otomatis ke database
+                Sistem 5 Tab Sheet Terintegrasi · Simpan otomatis ke database
               </p>
             </div>
           </div>
@@ -194,7 +195,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           </button>
         </div>
 
-        {/* 4 Connected Form Tabs Selector */}
+        {/* 5 Connected Form Tabs Selector */}
         <div className="flex border-b border-slate-200 bg-slate-100/80 px-4 pt-2 overflow-x-auto custom-scrollbar">
           <button
             type="button"
@@ -249,6 +250,19 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           >
             <HardHat className="w-3.5 h-3.5 text-emerald-600" />
             <span>4. Tab Status Construction</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFormTab(5)}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-t-lg transition-colors cursor-pointer whitespace-nowrap border-b-2 ${
+              activeFormTab === 5
+                ? 'bg-white text-purple-700 border-purple-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 border-transparent'
+            }`}
+          >
+            <GitCommit className="w-3.5 h-3.5 text-purple-600" />
+            <span>5. Tab Tracking Pipeline</span>
           </button>
         </div>
 
@@ -895,6 +909,85 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* TAB 5: PROJECT TRACKING PIPELINE */}
+          {activeFormTab === 5 && (
+            <div className="space-y-4">
+              <div className="bg-purple-50/80 border border-purple-200/80 rounded-lg p-3 text-xs text-purple-900">
+                Ringkasan pipeline pelacakan menyeluruh. Kolom ini terhubung langsung dengan Sheet 5 (Project Tracking Pipeline).
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Start Project</label>
+                  <input
+                    type="date"
+                    value={formData.tanggalStartProject || ''}
+                    onChange={(e) => handleChange('tanggalStartProject', e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">End Project</label>
+                  <input
+                    type="date"
+                    value={formData.tanggalEndProject || ''}
+                    onChange={(e) => handleChange('tanggalEndProject', e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Closing SAP</label>
+                  <select
+                    value={formData.closingSap || 'No'}
+                    onChange={(e) => handleChange('closingSap', e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                    <option value="In Progress">In Progress</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pulling Cable Progress</label>
+                  <input
+                    type="text"
+                    value={formData.pullingCableProgress || ''}
+                    onChange={(e) => handleChange('pullingCableProgress', e.target.value)}
+                    placeholder="e.g. 75%, Selesai"
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Galian Sipil Progress</label>
+                  <input
+                    type="text"
+                    value={formData.galianSipilProgress || ''}
+                    onChange={(e) => handleChange('galianSipilProgress', e.target.value)}
+                    placeholder="e.g. 50%, Menunggu izin"
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan Pipeline & Evaluasi</label>
+                <textarea
+                  rows={2}
+                  value={formData.remarksConstruction || ''}
+                  onChange={(e) => handleChange('remarksConstruction', e.target.value)}
+                  placeholder="Catatan mitigasi risiko, koordinasi antar instansi..."
+                  className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer Controls */}
@@ -912,10 +1005,10 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               </button>
             )}
 
-            {activeFormTab < 4 && (
+            {activeFormTab < 5 && (
               <button
                 type="button"
-                onClick={() => setActiveFormTab((prev) => Math.min(4, prev + 1))}
+                onClick={() => setActiveFormTab((prev) => Math.min(5, prev + 1))}
                 className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 <span>Tab Selanjutnya</span>

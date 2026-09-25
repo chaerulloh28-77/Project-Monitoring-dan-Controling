@@ -1,6 +1,8 @@
 {
-  "name": "PMO Telecom Project Dashboard",
+  "name": "Project Monitoring dan Controling",
   "description": "Dashboard Manajemen Proyek Relokasi Telekomunikasi dengan 5 Sheet Terintegrasi: Project List, Construction & Plan, Status Project, Status Construction, dan Project Tracking Pipeline dengan opsi Zona (Jabo 1, 2, 3), Quarter (Q1-26 s/d Q4-26), CRUD lengkap, dan auto-save.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

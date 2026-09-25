@@ -109,7 +109,7 @@ export const PROJECT_TRACKING_PIPELINE_COLUMNS: ColumnDefinition[] = [
 ];
 
 export const TAB_CONFIG = [
-  { id: 'project-list' as TabKey, label: '1. Project List', description: '' },
+  { id: 'project-list' as TabKey, label: '1. Project List', description: 'Master identitas proyek, PIC Section Head, area & status' },
   { id: 'construction-plan' as TabKey, label: '2. Construction & Plan', description: 'Perencanaan teknis, vendor & perizinan' },
   { id: 'status-project' as TabKey, label: '3. Status Project', description: 'Pengajuan project, MR, PO & closing dokumen' },
   { id: 'status-construction' as TabKey, label: '4. Status Construction', description: 'Progress fisik, galian, kabel & SAP closing' },

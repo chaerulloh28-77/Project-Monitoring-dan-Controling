@@ -11,7 +11,8 @@ import {
   Activity,
   Ruler,
   Clock,
-  ArrowRight
+  ArrowRight,
+  GitCommit
 } from 'lucide-react';
 import { ProjectData, TabKey } from '../types/project';
 import { TabVisualIcon } from './TabVisualIcon';
@@ -310,6 +311,45 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
                   <p className="text-slate-700 italic bg-slate-50 p-2 rounded text-[11px]">
                     {project.remarksConstruction || 'Tidak ada catatan konstruksi'}
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Tab Sheet 5: Project Tracking Pipeline Summary */}
+            <div className="bg-white rounded-lg border border-purple-200 p-4 shadow-xs">
+              <div className="flex items-center justify-between pb-2 mb-3 border-b border-purple-100">
+                <div className="flex items-center gap-2 text-purple-900 font-semibold text-xs">
+                  <GitCommit className="w-4 h-4 text-purple-600" />
+                  <span>Sheet 5: Project Tracking Pipeline (Pelacakan Menyeluruh)</span>
+                </div>
+                <span className="text-[11px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold border border-purple-200">
+                  {project.projectStatus || 'In Progress'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Tanggal Start Project</span>
+                  <span className="font-medium text-slate-800">{project.tanggalStartProject || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Tanggal End Project</span>
+                  <span className="font-medium text-slate-800">{project.tanggalEndProject || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Status Pengajuan PO/MR</span>
+                  <span className="font-semibold text-indigo-700">MR: {project.statusPengajuanMr || '-'} | PO: {project.statusPengajuanPo || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Pulling Cable Progress</span>
+                  <span className="font-medium text-slate-800">{project.pullingCableProgress || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Galian Sipil Progress</span>
+                  <span className="font-medium text-slate-800">{project.galianSipilProgress || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Closing SAP</span>
+                  <span className="font-medium text-slate-800">{project.closingSap || '-'}</span>
                 </div>
               </div>
             </div>

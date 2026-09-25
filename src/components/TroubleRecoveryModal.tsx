@@ -32,6 +32,8 @@ export const TroubleRecoveryModal: React.FC<TroubleRecoveryModalProps> = ({
   const [backups, setBackups] = useState<BackupSnapshot[]>(storageService.getBackups());
   const [selectedSnapshot, setSelectedSnapshot] = useState<BackupSnapshot | null>(null);
   const [restoreNotice, setRestoreNotice] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmFactoryReset, setConfirmFactoryReset] = useState(false);
 
   if (!isOpen) return null;
 
@@ -48,15 +50,14 @@ export const TroubleRecoveryModal: React.FC<TroubleRecoveryModalProps> = ({
   };
 
   const handleResetToFactory = () => {
-    if (window.confirm('Apakah Anda yakin ingin mengatur ulang data ke data awal bawaan?')) {
-      const resetData = storageService.resetToInitial();
-      onRestore(resetData);
-      setRestoreNotice('Data berhasil dikembalikan ke format awal.');
-      setTimeout(() => {
-        setRestoreNotice(null);
-        onClose();
-      }, 1000);
-    }
+    const resetData = storageService.resetToInitial();
+    onRestore(resetData);
+    setConfirmFactoryReset(false);
+    setRestoreNotice('Data berhasil dikembalikan ke format awal.');
+    setTimeout(() => {
+      setRestoreNotice(null);
+      onClose();
+    }, 1000);
   };
 
   const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,16 +71,17 @@ export const TroubleRecoveryModal: React.FC<TroubleRecoveryModalProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) {
           storageService.saveProjects(parsed, 'Imported from JSON backup');
           onRestore(parsed);
+          setErrorMessage(null);
           setRestoreNotice(`Sukses mengimpor ${parsed.length} project.`);
           setTimeout(() => {
             setRestoreNotice(null);
             onClose();
           }, 1200);
         } else {
-          alert('Format file JSON tidak sesuai.');
+          setErrorMessage('Format file JSON tidak sesuai: data harus berupa array project.');
         }
-      } catch (err) {
-        alert('Gagal membaca file JSON: format tidak valid.');
+      } catch {
+        setErrorMessage('Gagal membaca file JSON: format struktur data tidak valid.');
       }
     };
     reader.readAsText(file);
@@ -129,6 +131,47 @@ export const TroubleRecoveryModal: React.FC<TroubleRecoveryModalProps> = ({
           {restoreNotice && (
             <div className="p-3 bg-sky-50 border border-sky-300 rounded-lg text-sky-800 font-medium">
               {restoreNotice}
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg text-rose-800 font-medium flex items-center justify-between">
+              <span>{errorMessage}</span>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="text-rose-500 hover:text-rose-700 ml-2"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {confirmFactoryReset && (
+            <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-lg text-rose-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-xs text-rose-800">
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                <span>Konfirmasi Reset ke Data Asli</span>
+              </div>
+              <p className="text-[11px] text-rose-700">
+                Apakah Anda yakin ingin mengatur ulang data ke data awal bawaan? Seluruh perubahan project saat ini akan diganti dengan data sampel sistem bawaan.
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleResetToFactory}
+                  className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Ya, Lanjutkan Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmFactoryReset(false)}
+                  className="px-3 py-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded text-xs font-medium cursor-pointer transition-colors"
+                >
+                  Batal
+                </button>
+              </div>
             </div>
           )}
 
@@ -213,7 +256,11 @@ export const TroubleRecoveryModal: React.FC<TroubleRecoveryModalProps> = ({
 
               {/* Reset to Factory Default */}
               <button
-                onClick={handleResetToFactory}
+                type="button"
+                onClick={() => {
+                  setErrorMessage(null);
+                  setConfirmFactoryReset(true);
+                }}
                 className="p-3 bg-rose-50/50 hover:bg-rose-50 border border-rose-200 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2 font-semibold text-rose-700 mb-1">
@@ -221,7 +268,7 @@ export const TroubleRecoveryModal: React.FC<TroubleRecoveryModalProps> = ({
                   <span>Reset ke Data Asli</span>
                 </div>
                 <p className="text-[11px] text-rose-600/80">
-                  Kembalikan dataset awal 4 sheet bawaan.
+                  Kembalikan dataset awal 5 sheet bawaan.
                 </p>
               </button>
             </div>
