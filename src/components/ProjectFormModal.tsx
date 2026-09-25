@@ -29,6 +29,7 @@ import {
   PLAN_PENGAMBILAN_MATERIAL_OPTIONS,
   STATUS_MATERIAL_LOCATION_OPTIONS,
   STATUS_DOKUMEN_CLOSING_OPTIONS,
+  STATUS_AUDIT_OPTIONS,
   STATUS_MATERIAL_OPTIONS,
   STATUS_PULLING_CABLE_FO_OPTIONS,
   STATUS_PULLING_CABLE_COAX_OPTIONS,
@@ -41,6 +42,8 @@ import {
   GALVANIS_OPTIONS,
   calculateGalianPercentage,
   calculatePullingPercentage,
+  calculatePullingFoPercentage,
+  calculatePullingCoaxPercentage,
 } from '../data/dropdownOptions';
 
 interface ProjectFormModalProps {
@@ -129,8 +132,14 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           statusConstruction: 'Project Not Started',
           statusLabor: 'N/A',
           statusMaterial: 'N/A',
-          statusPullingCableFo: '',
-          statusPullingCableCoax: '',
+          statusPullingCableFo: 'Not Yet',
+          pullingFoPanjangSelesai: 0,
+          pullingFoPanjangTotal: 1000,
+          pullingCableFoProgress: '0%',
+          statusPullingCableCoax: 'Not Yet',
+          pullingCoaxPanjangSelesai: 0,
+          pullingCoaxPanjangTotal: 1000,
+          pullingCableCoaxProgress: '0%',
           statusCo: '',
           statusCoCoax: '',
           laporanOpname: '',
@@ -182,16 +191,44 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       // Auto-compute Pulling Cable Progress from FO & Coax statuses & length
       if (
         field === 'statusPullingCableFo' ||
+        field === 'pullingFoPanjangSelesai' ||
+        field === 'pullingFoPanjangTotal' ||
         field === 'statusPullingCableCoax' ||
+        field === 'pullingCoaxPanjangSelesai' ||
+        field === 'pullingCoaxPanjangTotal' ||
         field === 'statusConstruction' ||
         field === 'pullingPanjangSelesai' ||
         field === 'pullingPanjangTotal' ||
         field === 'panjangRelokasi'
       ) {
-        const totalTarget = Number(updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
-        const doneMeters = Number(updated.pullingPanjangSelesai || 0);
-        if (totalTarget > 0 && doneMeters > 0) {
-          const pct = Math.min(100, Math.round((doneMeters / totalTarget) * 100));
+        const foTotal = Number(updated.pullingFoPanjangTotal || updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
+        const foDone = Number(updated.pullingFoPanjangSelesai || 0);
+
+        // Auto compute FO progress
+        updated.pullingCableFoProgress = calculatePullingFoPercentage(
+          updated.statusPullingCableFo || 'Not Yet',
+          foDone,
+          foTotal,
+          updated.statusConstruction
+        );
+
+        const coaxTotal = Number(updated.pullingCoaxPanjangTotal || updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
+        const coaxDone = Number(updated.pullingCoaxPanjangSelesai || 0);
+
+        // Auto compute COAX progress
+        updated.pullingCableCoaxProgress = calculatePullingCoaxPercentage(
+          updated.statusPullingCableCoax || 'Not Yet',
+          coaxDone,
+          coaxTotal,
+          updated.statusConstruction
+        );
+
+        // Overall Pulling Cable Progress
+        const combinedDone = (foDone > 0 || coaxDone > 0) ? (foDone + coaxDone) : Number(updated.pullingPanjangSelesai || 0);
+        const combinedTotal = (foTotal > 0 || coaxTotal > 0) ? (foTotal + coaxTotal) : Number(updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
+
+        if (combinedTotal > 0 && combinedDone > 0) {
+          const pct = Math.min(100, Math.round((combinedDone / combinedTotal) * 100));
           updated.pullingCableProgress = `${pct}%`;
         } else {
           updated.pullingCableProgress = calculatePullingPercentage(
@@ -617,13 +654,15 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Audit</label>
-                  <input
-                    type="text"
-                    value={formData.statusAudit || ''}
+                  <select
+                    value={formData.statusAudit || 'Not Yet'}
                     onChange={(e) => handleChange('statusAudit', e.target.value)}
-                    placeholder="e.g. Belum, Belum di Audit"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_AUDIT_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -836,7 +875,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Plan Pengambilan Material</label>
                   <select
-                    value={formData.planPengambilanMaterial || 'Warehouse LN'}
+                    value={formData.planPengambilanMaterial || 'Not Yet'}
                     onChange={(e) => handleChange('planPengambilanMaterial', e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
                   >
@@ -849,7 +888,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Material Location</label>
                   <select
-                    value={formData.statusMaterialLocation || 'Warehouse CKT'}
+                    value={formData.statusMaterialLocation || 'Not Yet'}
                     onChange={(e) => handleChange('statusMaterialLocation', e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
                   >
@@ -862,7 +901,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status Dokumen Closing</label>
                   <select
-                    value={formData.statusDokumenClosing || 'Completed waspang mobility'}
+                    value={formData.statusDokumenClosing || 'Not Yet'}
                     onChange={(e) => handleChange('statusDokumenClosing', e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
                   >
@@ -923,7 +962,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pulling Cable FO</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">Status Pulling FO</label>
+                    <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 text-indigo-700 bg-indigo-50 border border-indigo-200 rounded">
+                      FO: {formData.pullingCableFoProgress || '0%'}
+                    </span>
+                  </div>
                   <select
                     value={formData.statusPullingCableFo || 'Not Yet'}
                     onChange={(e) => handleChange('statusPullingCableFo', e.target.value)}
@@ -936,7 +980,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pulling Cable Coax</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">Status Pulling Coax</label>
+                    <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 text-purple-700 bg-purple-50 border border-purple-200 rounded">
+                      COAX: {formData.pullingCableCoaxProgress || '0%'}
+                    </span>
+                  </div>
                   <select
                     value={formData.statusPullingCableCoax || 'Not Yet'}
                     onChange={(e) => handleChange('statusPullingCableCoax', e.target.value)}
@@ -1125,13 +1174,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
               </div>
 
-              {/* Automatic Progress Calculators (Galian & Pulling) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Automatic Progress Calculators (Galian, Pulling Cable Overall, FO, COAX) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Auto Calculated Galian Sipil Progress */}
                 <div className="p-3 bg-indigo-50/70 border border-indigo-200/90 rounded-lg space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                      <span>Galian Sipil Progress (Otomatis)</span>
+                      <span>Galian Sipil (Otomatis)</span>
                     </label>
                     <span className="px-2.5 py-0.5 text-xs font-bold font-mono bg-indigo-600 text-white rounded-full">
                       {formData.galianSipilProgress || '0%'}
@@ -1150,7 +1199,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                       />
                     </div>
                     <div>
-                      <span className="text-[11px] text-slate-500 block">Total Target Meter</span>
+                      <span className="text-[11px] text-slate-500 block">Target Meter</span>
                       <input
                         type="number"
                         min="0"
@@ -1162,47 +1211,131 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     </div>
                   </div>
                   <p className="text-[10px] text-indigo-700">
-                    Sistem otomatis menghitung persentase dari perbandingan meter atau status tahapan konstruksi.
+                    Otomatis dari perbandingan meter / status tahapan konstruksi.
                   </p>
                 </div>
 
-                {/* Auto Calculated Pulling Cable Progress */}
-                <div className="p-3 bg-purple-50/70 border border-purple-200/90 rounded-lg space-y-2">
+                {/* Auto Calculated Pulling Cable FO */}
+                <div className="p-3 bg-sky-50/70 border border-sky-200/90 rounded-lg space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                      <span>Pulling Cable Progress (Otomatis)</span>
+                    <label className="text-xs font-bold text-sky-900 flex items-center gap-1.5">
+                      <span>Pulling Cable FO (Otomatis)</span>
                     </label>
-                    <span className="px-2.5 py-0.5 text-xs font-bold font-mono bg-purple-600 text-white rounded-full">
-                      {formData.pullingCableProgress || '0%'}
+                    <span className="px-2.5 py-0.5 text-xs font-bold font-mono bg-sky-600 text-white rounded-full">
+                      {formData.pullingCableFoProgress || '0%'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-[11px] text-slate-500 block">Meter Selesai</span>
+                      <span className="text-[11px] text-slate-600 block font-medium">Meter Selesai FO</span>
                       <input
                         type="number"
                         min="0"
-                        value={formData.pullingPanjangSelesai || ''}
-                        onChange={(e) => handleChange('pullingPanjangSelesai', e.target.value)}
-                        placeholder="e.g. 650"
-                        className="w-full px-2 py-1 text-xs border border-purple-300 rounded bg-white font-mono"
+                        value={formData.pullingFoPanjangSelesai ?? ''}
+                        onChange={(e) => handleChange('pullingFoPanjangSelesai', e.target.value)}
+                        placeholder="e.g. 500"
+                        className="w-full px-2 py-1 text-xs border border-sky-300 rounded bg-white font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <span className="text-[11px] text-slate-500 block">Total Target Meter</span>
+                      <span className="text-[11px] text-slate-600 block font-medium">Target Meter FO</span>
                       <input
                         type="number"
                         min="0"
-                        value={formData.pullingPanjangTotal || formData.panjangRelokasi || ''}
-                        onChange={(e) => handleChange('pullingPanjangTotal', e.target.value)}
+                        value={formData.pullingFoPanjangTotal ?? formData.panjangRelokasi ?? ''}
+                        onChange={(e) => handleChange('pullingFoPanjangTotal', e.target.value)}
                         placeholder="e.g. 1000"
-                        className="w-full px-2 py-1 text-xs border border-purple-300 rounded bg-white font-mono"
+                        className="w-full px-2 py-1 text-xs border border-sky-300 rounded bg-white font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>Status FO: <strong className="text-slate-800">{formData.statusPullingCableFo || 'Not Yet'}</strong></span>
+                      <span className="font-mono text-[10px] text-sky-800 font-semibold">{formData.pullingCableFoProgress || '0%'}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mt-0.5">
+                      <div
+                        className="bg-sky-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: formData.pullingCableFoProgress || '0%' }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-sky-700">
+                    Otomatis dari perbandingan meter selesai / target meter FO (atau status FO).
+                  </p>
+                </div>
+
+                {/* Auto Calculated Pulling Cable COAX */}
+                <div className="p-3 bg-purple-50/70 border border-purple-200/90 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                      <span>Pulling Cable COAX (Otomatis)</span>
+                    </label>
+                    <span className="px-2.5 py-0.5 text-xs font-bold font-mono bg-purple-600 text-white rounded-full">
+                      {formData.pullingCableCoaxProgress || '0%'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[11px] text-slate-600 block font-medium">Meter Selesai COAX</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pullingCoaxPanjangSelesai ?? ''}
+                        onChange={(e) => handleChange('pullingCoaxPanjangSelesai', e.target.value)}
+                        placeholder="e.g. 400"
+                        className="w-full px-2 py-1 text-xs border border-purple-300 rounded bg-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-600 block font-medium">Target Meter COAX</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.pullingCoaxPanjangTotal ?? formData.panjangRelokasi ?? ''}
+                        onChange={(e) => handleChange('pullingCoaxPanjangTotal', e.target.value)}
+                        placeholder="e.g. 1000"
+                        className="w-full px-2 py-1 text-xs border border-purple-300 rounded bg-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>Status COAX: <strong className="text-slate-800">{formData.statusPullingCableCoax || 'Not Yet'}</strong></span>
+                      <span className="font-mono text-[10px] text-purple-800 font-semibold">{formData.pullingCableCoaxProgress || '0%'}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mt-0.5">
+                      <div
+                        className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: formData.pullingCableCoaxProgress || '0%' }}
                       />
                     </div>
                   </div>
                   <p className="text-[10px] text-purple-700">
-                    Dihitung otomatis dari status Pulling FO ({formData.statusPullingCableFo || 'Not Yet'}) & COAX ({formData.statusPullingCableCoax || 'Not Yet'}).
+                    Otomatis dari perbandingan meter selesai / target meter COAX (atau status COAX).
                   </p>
+                </div>
+              </div>
+
+              {/* Total Pulling Cable Progress Combined */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="space-y-0.5 text-xs">
+                  <span className="font-bold text-slate-800">Total Pulling Cable Progress (Keseluruhan)</span>
+                  <p className="text-[11px] text-slate-500">
+                    Kombinasi otomatis progres FO ({formData.pullingCableFoProgress || '0%'}) & COAX ({formData.pullingCableCoaxProgress || '0%'}).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-32 bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-emerald-600 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: formData.pullingCableProgress || '0%' }}
+                    />
+                  </div>
+                  <span className="px-3 py-1 text-xs font-bold font-mono bg-emerald-600 text-white rounded-full">
+                    {formData.pullingCableProgress || '0%'}
+                  </span>
                 </div>
               </div>
 

@@ -64,7 +64,13 @@ export interface ProjectData {
   statusLabor: string; // "Status Labor", e.g. N/A, Assigned
   statusMaterial: string; // "Status Material", e.g. N/A, Released, No Need MR
   statusPullingCableFo: string; // "Status Pulling Cable FO", e.g. In Progress, Done, Not Started
+  pullingFoPanjangSelesai?: number | string; // Meter selesai FO
+  pullingFoPanjangTotal?: number | string; // Target meter FO
+  pullingCableFoProgress?: string; // "Pulling Cable FO Progress (Otomatis)", e.g. 100%, 50%, 0%
   statusPullingCableCoax: string; // "Status Pulling Cable Coax", e.g. Done, In Progress, N/A
+  pullingCoaxPanjangSelesai?: number | string; // Meter selesai COAX
+  pullingCoaxPanjangTotal?: number | string; // Target meter COAX
+  pullingCableCoaxProgress?: string; // "Pulling Cable COAX Progress (Otomatis)", e.g. 100%, 50%, 0%
   statusCo: string; // "Status CO", e.g. In Progress, Done, N/A
   statusCoCoax: string; // "Status CO Coax"
   laporanOpname: string; // "Laporan Opname", e.g. Not Yet, Submitted, Approved

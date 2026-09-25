@@ -65,27 +65,37 @@ export const STATUS_PENGAJUAN_PROJECT_OPTIONS = [
   'Release',
 ] as const;
 
-// Plan Pengambilan Material: Warehouse LN, Warehouse CKT
+// Plan Pengambilan Material: Not Yet, Warehouse LN, Warehouse CKT
 export const PLAN_PENGAMBILAN_MATERIAL_OPTIONS = [
+  'Not Yet',
   'Warehouse LN',
   'Warehouse CKT',
 ] as const;
 
-// Status Material Location: Warehouse CKT, Warehouse Vendor
+// Status Material Location: Not Yet, Warehouse CKT, Warehouse Vendor
 export const STATUS_MATERIAL_LOCATION_OPTIONS = [
+  'Not Yet',
   'Warehouse CKT',
   'Warehouse Vendor',
 ] as const;
 
 // Status Dokumen Closing:
-// Completed waspang mobility, Submit dokumen SAP, Approval completed SAP, Approval BALAP, Approval BAST, Teco done
+// Not Yet, Completed waspang mobility, Submit dokumen SAP, Approval completed SAP, Approval BALAP, Approval BAST, Teco done
 export const STATUS_DOKUMEN_CLOSING_OPTIONS = [
+  'Not Yet',
   'Completed waspang mobility',
   'Submit dokumen SAP',
   'Approval completed SAP',
   'Approval BALAP',
   'Approval BAST',
   'Teco done',
+] as const;
+
+// Status Audit: Not Yet, In Progress, Done
+export const STATUS_AUDIT_OPTIONS = [
+  'Not Yet',
+  'In Progress',
+  'Done',
 ] as const;
 
 // Status Material: Not Yet, No need MR, Release
@@ -163,6 +173,56 @@ export function calculateGalianPercentage(statusConstruction: string, galianInpu
     return `${Math.min(100, Math.max(0, Math.round(num)))}%`;
   }
   if (str.toLowerCase() === 'done' || str.toLowerCase() === 'selesai') return '100%';
+  return '0%';
+}
+
+/**
+ * Helper to calculate Pulling Cable FO Progress percentage automatically:
+ * Based on statusPullingCableFo, meters, or statusConstruction
+ */
+export function calculatePullingFoPercentage(
+  statusFo: string,
+  doneMeters?: number | string,
+  totalMeters?: number | string,
+  statusConstruction?: string
+): string {
+  if (statusConstruction === 'Completed') return '100%';
+  if (statusConstruction === 'Project Cancel' || statusConstruction === 'Cancelled') return '0%';
+
+  const total = Number(totalMeters || 0);
+  const done = Number(doneMeters || 0);
+  if (total > 0) {
+    const pct = Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+    return `${pct}%`;
+  }
+
+  if (statusFo === 'Done') return '100%';
+  if (statusFo === 'In Progress') return '50%';
+  return '0%';
+}
+
+/**
+ * Helper to calculate Pulling Cable COAX Progress percentage automatically:
+ * Based on statusPullingCableCoax, meters, or statusConstruction
+ */
+export function calculatePullingCoaxPercentage(
+  statusCoax: string,
+  doneMeters?: number | string,
+  totalMeters?: number | string,
+  statusConstruction?: string
+): string {
+  if (statusConstruction === 'Completed') return '100%';
+  if (statusConstruction === 'Project Cancel' || statusConstruction === 'Cancelled') return '0%';
+
+  const total = Number(totalMeters || 0);
+  const done = Number(doneMeters || 0);
+  if (total > 0) {
+    const pct = Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+    return `${pct}%`;
+  }
+
+  if (statusCoax === 'Done') return '100%';
+  if (statusCoax === 'In Progress') return '50%';
   return '0%';
 }
 

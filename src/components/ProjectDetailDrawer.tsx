@@ -283,12 +283,22 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Pulling Cable FO</span>
-                  <span className="font-medium text-slate-800">{project.statusPullingCableFo || '-'}</span>
+                  <span className="text-slate-400 block text-[11px]">Pulling FO (Otomatis)</span>
+                  <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                    <span>{project.statusPullingCableFo || 'Not Yet'}</span>
+                    <span className="text-[10px] font-mono font-bold text-sky-700 bg-sky-50 px-1 rounded border border-sky-200">
+                      {project.pullingCableFoProgress || (project.statusPullingCableFo === 'Done' ? '100%' : project.statusPullingCableFo === 'In Progress' ? '50%' : '0%')}
+                    </span>
+                  </div>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Pulling Cable Coax</span>
-                  <span className="font-medium text-slate-800">{project.statusPullingCableCoax || '-'}</span>
+                  <span className="text-slate-400 block text-[11px]">Pulling COAX (Otomatis)</span>
+                  <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                    <span>{project.statusPullingCableCoax || 'Not Yet'}</span>
+                    <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-50 px-1 rounded border border-purple-200">
+                      {project.pullingCableCoaxProgress || (project.statusPullingCableCoax === 'Done' ? '100%' : project.statusPullingCableCoax === 'In Progress' ? '50%' : '0%')}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[11px]">Status CO / CO Coax</span>

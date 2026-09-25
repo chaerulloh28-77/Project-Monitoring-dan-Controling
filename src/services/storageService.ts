@@ -1,5 +1,6 @@
 import { ProjectData, BackupSnapshot } from '../types/project';
 import { INITIAL_PROJECTS } from '../data/initialData';
+import { calculatePullingFoPercentage, calculatePullingCoaxPercentage } from '../data/dropdownOptions';
 
 const STORAGE_KEY = 'PMO_PROJECTS_DATA_V1';
 const BACKUPS_KEY = 'PMO_PROJECTS_BACKUPS_V1';
@@ -45,6 +46,25 @@ export const storageService = {
           if (kmzRel === 'Belum') kmzRel = 'Belum ada';
           if (kmzRel === 'Sudah') kmzRel = 'Ada';
 
+          // Normalize Status Audit
+          let statusAudit = p.statusAudit;
+          if (statusAudit === 'Belum' || statusAudit === 'Belum di Audit') statusAudit = 'Not Yet';
+          if (statusAudit === 'Sudah Audit' || statusAudit === 'Sudah') statusAudit = 'Done';
+
+          const foProgress = p.pullingCableFoProgress || calculatePullingFoPercentage(
+            p.statusPullingCableFo || 'Not Yet',
+            p.pullingPanjangSelesai,
+            p.pullingPanjangTotal || p.panjangRelokasi,
+            p.statusConstruction
+          );
+
+          const coaxProgress = p.pullingCableCoaxProgress || calculatePullingCoaxPercentage(
+            p.statusPullingCableCoax || 'Not Yet',
+            p.pullingPanjangSelesai,
+            p.pullingPanjangTotal || p.panjangRelokasi,
+            p.statusConstruction
+          );
+
           return {
             ...p,
             projectCategory: cat || 'GOV IPPJU',
@@ -52,6 +72,9 @@ export const storageService = {
             zona: zona || 'Jabo 1',
             apdRelokasi: apdRel || 'Belum ada',
             kmzRelokasi: kmzRel || 'Belum ada',
+            statusAudit: statusAudit || 'Not Yet',
+            pullingCableFoProgress: foProgress,
+            pullingCableCoaxProgress: coaxProgress,
           };
         });
         return normalized;

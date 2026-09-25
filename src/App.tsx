@@ -19,7 +19,12 @@ import {
   AlignJustify
 } from 'lucide-react';
 import { ProjectData, TabKey } from './types/project';
-import { calculateGalianPercentage, calculatePullingPercentage } from './data/dropdownOptions';
+import {
+  calculateGalianPercentage,
+  calculatePullingPercentage,
+  calculatePullingFoPercentage,
+  calculatePullingCoaxPercentage,
+} from './data/dropdownOptions';
 import { 
   PROJECT_LIST_COLUMNS, 
   CONSTRUCTION_PLAN_COLUMNS, 
@@ -228,16 +233,57 @@ export default function App() {
         // Auto-recalculate Pulling Cable Progress if FO/COAX or status construction is updated
         if (
           field === 'statusPullingCableFo' ||
+          field === 'pullingFoPanjangSelesai' ||
+          field === 'pullingFoPanjangTotal' ||
+          field === 'pullingCableFoProgress' ||
           field === 'statusPullingCableCoax' ||
+          field === 'pullingCoaxPanjangSelesai' ||
+          field === 'pullingCoaxPanjangTotal' ||
+          field === 'pullingCableCoaxProgress' ||
           field === 'statusConstruction' ||
-          field === 'pullingCableProgress'
+          field === 'pullingPanjangSelesai' ||
+          field === 'pullingPanjangTotal' ||
+          field === 'pullingCableProgress' ||
+          field === 'panjangRelokasi'
         ) {
-          if (field !== 'pullingCableProgress') {
-            item.pullingCableProgress = calculatePullingPercentage(
-              item.statusPullingCableFo,
-              item.statusPullingCableCoax,
+          const foTotal = Number(item.pullingFoPanjangTotal || item.pullingPanjangTotal || item.panjangRelokasi || 0);
+          const foDone = Number(item.pullingFoPanjangSelesai || 0);
+
+          if (field !== 'pullingCableFoProgress') {
+            item.pullingCableFoProgress = calculatePullingFoPercentage(
+              item.statusPullingCableFo || 'Not Yet',
+              foDone,
+              foTotal,
               item.statusConstruction
             );
+          }
+
+          const coaxTotal = Number(item.pullingCoaxPanjangTotal || item.pullingPanjangTotal || item.panjangRelokasi || 0);
+          const coaxDone = Number(item.pullingCoaxPanjangSelesai || 0);
+
+          if (field !== 'pullingCableCoaxProgress') {
+            item.pullingCableCoaxProgress = calculatePullingCoaxPercentage(
+              item.statusPullingCableCoax || 'Not Yet',
+              coaxDone,
+              coaxTotal,
+              item.statusConstruction
+            );
+          }
+
+          if (field !== 'pullingCableProgress') {
+            const combinedDone = (foDone > 0 || coaxDone > 0) ? (foDone + coaxDone) : Number(item.pullingPanjangSelesai || 0);
+            const combinedTotal = (foTotal > 0 || coaxTotal > 0) ? (foTotal + coaxTotal) : Number(item.pullingPanjangTotal || item.panjangRelokasi || 0);
+
+            if (combinedTotal > 0 && combinedDone > 0) {
+              const pct = Math.min(100, Math.round((combinedDone / combinedTotal) * 100));
+              item.pullingCableProgress = `${pct}%`;
+            } else {
+              item.pullingCableProgress = calculatePullingPercentage(
+                item.statusPullingCableFo,
+                item.statusPullingCableCoax,
+                item.statusConstruction
+              );
+            }
           }
         }
 

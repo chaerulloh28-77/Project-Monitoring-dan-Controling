@@ -28,6 +28,7 @@ import {
   PLAN_PENGAMBILAN_MATERIAL_OPTIONS,
   STATUS_MATERIAL_LOCATION_OPTIONS,
   STATUS_DOKUMEN_CLOSING_OPTIONS,
+  STATUS_AUDIT_OPTIONS,
   STATUS_MATERIAL_OPTIONS,
   STATUS_PULLING_CABLE_FO_OPTIONS,
   STATUS_PULLING_CABLE_COAX_OPTIONS,
@@ -473,6 +474,24 @@ export const TableView: React.FC<TableViewProps> = ({
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
                             </select>
+                          ) : col.key === 'statusAudit' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_AUDIT_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
                           ) : col.key === 'apdLinknet' ? (
                             <select
                               autoFocus
@@ -802,9 +821,23 @@ export const TableView: React.FC<TableViewProps> = ({
                           >
                             {valueStr}
                           </span>
-                        ) : col.key === 'panjangRelokasi' ? (
-                          <span>
-                            {valueStr ? Number(valueStr).toLocaleString('id-ID') : '-'}
+                        ) : (col.key === 'pullingCableFoProgress' || col.key === 'pullingCableCoaxProgress') && valueStr ? (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`h-2 rounded-full transition-all ${
+                                  col.key === 'pullingCableFoProgress' ? 'bg-sky-600' : 'bg-purple-600'
+                                }`}
+                                style={{ width: valueStr }}
+                              />
+                            </div>
+                            <span className="font-mono text-[11px] font-semibold text-slate-700">
+                              {valueStr}
+                            </span>
+                          </div>
+                        ) : (col.key === 'panjangRelokasi' || col.key === 'pullingFoPanjangSelesai' || col.key === 'pullingFoPanjangTotal' || col.key === 'pullingCoaxPanjangSelesai' || col.key === 'pullingCoaxPanjangTotal' || col.key === 'galianPanjangSelesai' || col.key === 'galianPanjangTotal' || col.key === 'pullingPanjangSelesai' || col.key === 'pullingPanjangTotal') ? (
+                          <span className="font-mono">
+                            {valueStr !== undefined && valueStr !== '' && valueStr !== null ? `${Number(valueStr).toLocaleString('id-ID')} m` : '-'}
                           </span>
                         ) : col.badgeType === 'category' && valueStr ? (
                           <span className={`inline-block px-2 py-0.5 text-[11px] rounded font-semibold ${
