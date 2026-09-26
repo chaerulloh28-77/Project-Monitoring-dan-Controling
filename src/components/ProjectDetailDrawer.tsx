@@ -174,7 +174,7 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
                   <span>Sheet 2: Construction & Plan (Perencanaan & Vendor)</span>
                 </div>
                 <span className="text-[11px] font-mono text-slate-500">
-                  {project.bulan} {project.tahun}
+                  {project.bulan || project.tahun ? `${project.bulan} ${project.tahun}`.trim() : '-'}
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">

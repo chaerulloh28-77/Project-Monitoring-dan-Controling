@@ -1,55 +1,78 @@
-import { ProjectData, BackupSnapshot } from '../types/project';
+import { ProjectData } from '../types/project';
 import { INITIAL_PROJECTS } from '../data/initialData';
 import { calculatePullingFoPercentage, calculatePullingCoaxPercentage } from '../data/dropdownOptions';
+import { securityGuard } from './securityGuard';
 
-const STORAGE_KEY = 'PMO_PROJECTS_DATA_V1';
-const BACKUPS_KEY = 'PMO_PROJECTS_BACKUPS_V1';
-const CRASH_GUARD_KEY = 'PMO_CRASH_GUARD_FLAG';
+const STORAGE_KEY = 'PMO_PROJECTS_DATA_V8';
+
+// Stale legacy keys that previously bloated localStorage
+const STALE_STORAGE_KEYS = [
+  'PMO_PROJECTS_DATA_V7',
+  'PMO_PROJECTS_DATA',
+  'PMO_PROJECTS_BACKUPS_V6',
+  'PMO_PROJECTS_BACKUPS_V5',
+  'PMO_PROJECTS_DATA_V6',
+  'PMO_PROJECTS_DATA_V5',
+  'PMO_PROJECTS_DATA_V4',
+  'PMO_PROJECTS_DATA_V3',
+  'PMO_PROJECTS_DATA_V2',
+  'PMO_CRASH_GUARD_FLAG',
+];
 
 export const storageService = {
-  // Load data with error resilience and category migration
+  // Purge any old bloated keys to ensure localStorage has zero quota errors
+  purgeStaleStorage(): void {
+    try {
+      for (const key of STALE_STORAGE_KEYS) {
+        localStorage.removeItem(key);
+      }
+    } catch (e) {
+      console.warn('Failed to purge stale storage keys:', e);
+    }
+  },
+
+  // Load projects from localStorage (loads clean 387 initial projects on fresh load)
   loadProjects(): ProjectData[] {
+    this.purgeStaleStorage();
+
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        this.saveProjects(INITIAL_PROJECTS, 'Initial load initialization');
-        return INITIAL_PROJECTS;
+      if (raw === null) {
+        // Load clean initial 387 projects
+        const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+        this.saveProjects(initial);
+        return initial;
       }
+
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Normalize any old category names to standard: GOV IPPJU, GOV APJATEL, GOV SJUT
-        const normalized = parsed.map((p: ProjectData) => {
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) {
+          return [];
+        }
+
+        // Normalize categories, PICs, clean PMO IDs, and ensure data integrity
+        const normalized = parsed.map((p: ProjectData, idx: number) => {
           let cat = p.projectCategory;
           if (cat === 'GOV Apjatel') cat = 'GOV APJATEL';
           if (cat === 'GOV Bina Marga' || cat === 'B2B Commercial' || cat === 'FTTH Relocation') {
             cat = 'GOV SJUT';
           }
 
-          // Normalize any non-standard PIC
           let pic = p.picSectionHead;
-          if (!pic || pic === 'Budi Santoso') {
+          if (pic === 'Chaerulloh' || !pic) {
+            pic = 'Chaerul';
+          }
+          if (pic === 'Budi Santoso') {
             pic = 'Aris';
           }
 
-          // Normalize zona
           let zona = p.zona;
           if (zona === 'Jobo 3' || zona === 'Jabo 3 / Jobo 3') {
             zona = 'Jabo 3';
           }
 
-          // Normalize APD & KMZ Relokasi
-          let apdRel = p.apdRelokasi;
-          if (apdRel === 'Belum') apdRel = 'Belum ada';
-          if (apdRel === 'Sudah') apdRel = 'Ada';
-
-          let kmzRel = p.kmzRelokasi;
-          if (kmzRel === 'Belum') kmzRel = 'Belum ada';
-          if (kmzRel === 'Sudah') kmzRel = 'Ada';
-
-          // Normalize Status Audit
-          let statusAudit = p.statusAudit;
-          if (statusAudit === 'Belum' || statusAudit === 'Belum di Audit') statusAudit = 'Not Yet';
-          if (statusAudit === 'Sudah Audit' || statusAudit === 'Sudah') statusAudit = 'Done';
+          // Ensure PMO-ID is clean (remove any trailing GOV, IPPJU, GOV Apjatel, GOV SJUT)
+          const cleanPmoId = p.pmoId ? p.pmoId.replace(/\s+(GOV.*)$/i, '').trim() : '';
 
           const foProgress = p.pullingCableFoProgress || calculatePullingFoPercentage(
             p.statusPullingCableFo || 'Not Yet',
@@ -67,80 +90,61 @@ export const storageService = {
 
           return {
             ...p,
+            no: idx + 1,
+            pmoId: cleanPmoId || p.pmoId,
             projectCategory: cat || 'GOV IPPJU',
             picSectionHead: pic,
             zona: zona || 'Jabo 1',
-            apdRelokasi: apdRel || 'Belum ada',
-            kmzRelokasi: kmzRel || 'Belum ada',
-            statusAudit: statusAudit || 'Not Yet',
             pullingCableFoProgress: foProgress,
             pullingCableCoaxProgress: coaxProgress,
           };
         });
+
+        normalized.sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
         return normalized;
       }
-      return INITIAL_PROJECTS;
+
+      const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+      this.saveProjects(initial);
+      return initial;
     } catch (err) {
       console.error('Failed to load projects from localStorage:', err);
       return INITIAL_PROJECTS;
     }
   },
 
-  // Save data automatically and create rolling backup snapshots
-  saveProjects(projects: ProjectData[], reason = 'Auto save'): { success: boolean; timestamp: string } {
+  // Save data to localStorage with zero quota bloat
+  saveProjects(projects: ProjectData[]): { success: boolean; timestamp: string } {
     const timestamp = new Date().toISOString();
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-      
-      // Also maintain disaster-recovery snapshots (keep last 8)
-      try {
-        const rawBackups = localStorage.getItem(BACKUPS_KEY);
-        const backups: BackupSnapshot[] = rawBackups ? JSON.parse(rawBackups) : [];
-        const newSnapshot: BackupSnapshot = {
-          timestamp,
-          count: projects.length,
-          data: projects,
-          reason,
-        };
-        const updatedBackups = [newSnapshot, ...backups.slice(0, 7)];
-        localStorage.setItem(BACKUPS_KEY, JSON.stringify(updatedBackups));
-      } catch (backupErr) {
-        console.warn('Backup snapshot rotation warning:', backupErr);
-      }
-
       return { success: true, timestamp };
     } catch (err) {
-      console.error('Storage save error:', err);
-      return { success: false, timestamp };
+      console.error('Storage save error, purging stale data and retrying...', err);
+      try {
+        this.purgeStaleStorage();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+        return { success: true, timestamp };
+      } catch (retryErr) {
+        console.error('Storage retry failed:', retryErr);
+        return { success: false, timestamp };
+      }
     }
   },
 
-  // Retrieve backup snapshots for disaster recovery
-  getBackups(): BackupSnapshot[] {
-    try {
-      const raw = localStorage.getItem(BACKUPS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (err) {
-      console.error('Failed to read backups:', err);
-      return [];
-    }
+  // Clear all projects completely (0 items)
+  clearAllProjects(): ProjectData[] {
+    this.purgeStaleStorage();
+    this.saveProjects([]);
+    return [];
   },
 
-  // Restore from a specific backup
-  restoreBackup(snapshot: BackupSnapshot): boolean {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot.data));
-      return true;
-    } catch (err) {
-      console.error('Failed to restore backup:', err);
-      return false;
-    }
-  },
-
-  // Reset to factory initial data
-  resetToInitial(): ProjectData[] {
-    this.saveProjects(INITIAL_PROJECTS, 'Reset to default data');
-    return INITIAL_PROJECTS;
+  // Restore 387 initial default projects
+  restoreDefaultProjects(): ProjectData[] {
+    this.purgeStaleStorage();
+    const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+    this.saveProjects(initial);
+    return initial;
   },
 
   // Export current data to Excel-ready CSV
@@ -287,7 +291,8 @@ export const storageService = {
       escapeCsv(p.remarksConstruction),
     ].join(','));
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const digitalSeal = securityGuard.generateExportSeal();
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows, `"# [SECURITY_AUDIT] Hak Cipta Dilindungi © PAUL | ${digitalSeal}"`].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -301,7 +306,16 @@ export const storageService = {
 
   // Export current data to JSON
   exportToJson(projects: ProjectData[]): void {
-    const jsonStr = JSON.stringify(projects, null, 2);
+    const digitalSeal = securityGuard.generateExportSeal();
+    const payload = {
+      system: 'Project Monitoring dan Controling',
+      author: 'PAUL',
+      security_seal: digitalSeal,
+      export_date: new Date().toISOString(),
+      total_records: projects.length,
+      data: projects,
+    };
+    const jsonStr = JSON.stringify(payload, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

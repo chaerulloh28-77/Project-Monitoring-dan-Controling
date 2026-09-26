@@ -8,10 +8,16 @@ import {
   Eye, 
   ExternalLink,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Layers,
   Check,
   Building,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  RotateCcw
 } from 'lucide-react';
 import { ProjectData, ColumnDefinition, TabKey, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
 import { TabVisualIcon } from './TabVisualIcon';
@@ -47,6 +53,8 @@ interface TableViewProps {
   onViewDetail: (project: ProjectData) => void;
   onJumpToTab: (tab: TabKey, project: ProjectData) => void;
   onQuickUpdateCell?: (projectId: string, field: keyof ProjectData, value: string) => void;
+  onNewProject?: () => void;
+  onRestoreDefaults?: () => void;
 }
 
 export const TableView: React.FC<TableViewProps> = ({
@@ -59,12 +67,24 @@ export const TableView: React.FC<TableViewProps> = ({
   onViewDetail,
   onJumpToTab,
   onQuickUpdateCell,
+  onNewProject,
+  onRestoreDefaults,
 }) => {
-  const [sortKey, setSortKey] = useState<keyof ProjectData | null>(null);
+  // Default sort strictly by No. ascending to match Project List sequence
+  const [sortKey, setSortKey] = useState<keyof ProjectData | null>('no');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   
+  // Pagination State for ultra-fast, smooth rendering: 50, 100, 200, or 0 (All)
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Reset page when tab or filtered dataset size changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, data.length]);
+
   // Inline quick editing state
   const [editingCell, setEditingCell] = useState<{ id: string; key: keyof ProjectData } | null>(null);
   const [cellTempText, setCellTempText] = useState('');
@@ -85,13 +105,13 @@ export const TableView: React.FC<TableViewProps> = ({
     };
   }, [activeActionMenuId]);
 
-  // Sorting handler
+  // Sorting handler - toggles asc -> desc -> fallback to 'no' asc
   const handleSort = (key: keyof ProjectData) => {
     if (sortKey === key) {
       if (sortDirection === 'asc') {
         setSortDirection('desc');
       } else {
-        setSortKey(null);
+        setSortKey('no');
         setSortDirection('asc');
       }
     } else {
@@ -100,15 +120,17 @@ export const TableView: React.FC<TableViewProps> = ({
     }
   };
 
-  // Process data sorting
+  // Process data sorting: guaranteed numerical order for No.
   const sortedData = React.useMemo(() => {
-    if (!sortKey) return data;
+    const key = sortKey || 'no';
     return [...data].sort((a, b) => {
-      const valA = a[sortKey] ?? '';
-      const valB = b[sortKey] ?? '';
+      const valA = a[key] ?? '';
+      const valB = b[key] ?? '';
 
-      if (typeof valA === 'number' && typeof valB === 'number') {
-        return sortDirection === 'asc' ? valA - valB : valB - valA;
+      if (key === 'no' || (typeof valA === 'number' && typeof valB === 'number')) {
+        const numA = Number(valA) || 0;
+        const numB = Number(valB) || 0;
+        return sortDirection === 'asc' ? numA - numB : numB - numA;
       }
       
       const strA = String(valA).toLowerCase();
@@ -118,6 +140,17 @@ export const TableView: React.FC<TableViewProps> = ({
         : strB.localeCompare(strA, 'id-ID', { numeric: true });
     });
   }, [data, sortKey, sortDirection]);
+
+  // Pagination calculation
+  const totalItems = sortedData.length;
+  const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(totalItems / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedData = React.useMemo(() => {
+    if (pageSize === 0) return sortedData;
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return sortedData.slice(startIndex, startIndex + pageSize);
+  }, [sortedData, safeCurrentPage, pageSize]);
 
   // Handle cell edit submit
   const commitCellEdit = (projectId: string, key: keyof ProjectData) => {
@@ -170,6 +203,42 @@ export const TableView: React.FC<TableViewProps> = ({
   };
 
   if (sortedData.length === 0) {
+    if (data.length === 0) {
+      return (
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs flex flex-col items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3.5">
+            <AlertCircle className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800 mb-1">Data Project List Kosong</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
+            Seluruh data project telah berhasil dihapus dari sistem. Anda dapat mulai menambahkan project baru secara mandiri atau memuat kembali 387 data project awal kapan saja.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {onNewProject && (
+              <button
+                type="button"
+                onClick={onNewProject}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 rounded-lg shadow-sm transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Input Data Baru</span>
+              </button>
+            )}
+            {onRestoreDefaults && (
+              <button
+                type="button"
+                onClick={onRestoreDefaults}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
+                <span>Muat Ulang 387 Data Awal</span>
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-12 text-center shadow-xs">
         <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -233,7 +302,7 @@ export const TableView: React.FC<TableViewProps> = ({
 
           {/* Table Body */}
           <tbody className="divide-y divide-slate-150">
-            {sortedData.map((row, index) => {
+            {paginatedData.map((row, index) => {
               const isEven = index % 2 === 0;
               const isHovered = hoveredRowId === row.id;
 
@@ -299,7 +368,7 @@ export const TableView: React.FC<TableViewProps> = ({
                         {activeActionMenuId === row.id && (
                           <div 
                             onMouseLeave={() => setActiveActionMenuId(null)}
-                            className="absolute left-full top-0 ml-1 z-50 w-52 bg-white rounded-lg shadow-lg border border-slate-200 py-1.5 text-left"
+                            className="absolute left-full top-0 ml-1 z-50 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-1.5 text-left"
                           >
                             <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 border-b border-slate-100">
                               Loncat ke Tab untuk {row.pmoId}
@@ -434,6 +503,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {TAHUN_OPTIONS.map((y) => (
                                 <option key={y} value={y}>{y}</option>
                               ))}
@@ -452,6 +522,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {APD_RELOKASI_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
@@ -470,6 +541,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {KMZ_RELOKASI_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
@@ -488,6 +560,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {STATUS_AUDIT_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
@@ -506,6 +579,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {APD_LINKNET_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
@@ -524,6 +598,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {STATUS_SURVEY_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
@@ -542,6 +617,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {BA_SURVEY_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
@@ -560,6 +636,7 @@ export const TableView: React.FC<TableViewProps> = ({
                               onBlur={() => commitCellEdit(row.id, col.key)}
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
+                              <option value="">- Kosong -</option>
                               {SPH_BOQ_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
@@ -837,7 +914,11 @@ export const TableView: React.FC<TableViewProps> = ({
                           </div>
                         ) : (col.key === 'panjangRelokasi' || col.key === 'pullingFoPanjangSelesai' || col.key === 'pullingFoPanjangTotal' || col.key === 'pullingCoaxPanjangSelesai' || col.key === 'pullingCoaxPanjangTotal' || col.key === 'galianPanjangSelesai' || col.key === 'galianPanjangTotal' || col.key === 'pullingPanjangSelesai' || col.key === 'pullingPanjangTotal') ? (
                           <span className="font-mono">
-                            {valueStr !== undefined && valueStr !== '' && valueStr !== null ? `${Number(valueStr).toLocaleString('id-ID')} m` : '-'}
+                            {valueStr !== undefined && valueStr !== '' && valueStr !== null && Number(valueStr) > 0 ? (
+                              `${Number(valueStr).toLocaleString('id-ID')} m`
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
                           </span>
                         ) : col.badgeType === 'category' && valueStr ? (
                           <span className={`inline-block px-2 py-0.5 text-[11px] rounded font-semibold ${
@@ -870,15 +951,92 @@ export const TableView: React.FC<TableViewProps> = ({
         </table>
       </div>
 
-      {/* Spreadsheet Bottom Status Bar */}
-      <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <span className="font-medium">Total: <strong className="text-slate-800 font-mono tabular-nums">{sortedData.length}</strong> baris ditampilkan</span>
-          <span>·</span>
-          <span className="text-[11px] text-slate-400">Klik dua kali pada sel untuk edit cepat</span>
+      {/* Spreadsheet Bottom Status Bar & Pagination */}
+      <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-3">
+        {/* Left: Summary & Per Page Selector */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span>Menampilkan:</span>
+            <strong className="text-slate-800 font-mono tabular-nums">
+              {totalItems === 0
+                ? 0
+                : `${(safeCurrentPage - 1) * (pageSize || totalItems) + 1} - ${
+                    pageSize === 0 ? totalItems : Math.min(safeCurrentPage * pageSize, totalItems)
+                  }`}
+            </strong>
+            <span>dari</span>
+            <strong className="text-sky-700 font-mono tabular-nums">{totalItems}</strong>
+            <span>proyek</span>
+          </div>
+
+          <div className="h-3.5 w-px bg-slate-300 hidden sm:block" />
+
+          {/* Rows per page selector */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[11px]">Tampilkan:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-7 px-2 py-0.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded shadow-2xs focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+            >
+              <option value={50}>50 baris</option>
+              <option value={100}>100 baris</option>
+              <option value={200}>200 baris</option>
+              <option value={0}>Semua ({totalItems})</option>
+            </select>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-          <span>Tampilan Spreadsheet Terhubung</span>
+
+        {/* Right: Pagination Navigation Controls */}
+        <div className="flex items-center gap-2">
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={safeCurrentPage === 1}
+                title="Halaman Pertama"
+                className="p-1 rounded bg-white border border-slate-200 text-slate-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage === 1}
+                title="Halaman Sebelumnya"
+                className="p-1 rounded bg-white border border-slate-200 text-slate-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <span className="px-2 py-0.5 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 rounded shadow-2xs">
+                Hal {safeCurrentPage} / {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage === totalPages}
+                title="Halaman Selanjutnya"
+                className="p-1 rounded bg-white border border-slate-200 text-slate-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safeCurrentPage === totalPages}
+                title="Halaman Terakhir"
+                className="p-1 rounded bg-white border border-slate-200 text-slate-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-slate-400 pl-2">
+            <span>· Terurut otomatis sesuai project list</span>
+          </div>
         </div>
       </div>
     </div>

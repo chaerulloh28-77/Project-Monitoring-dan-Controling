@@ -52,6 +52,37 @@ interface ProjectFormModalProps {
   onSave: (data: ProjectData) => void;
   initialData?: ProjectData | null;
   totalProjects: number;
+  existingProjects?: ProjectData[];
+}
+
+/**
+ * Helper to calculate the next sequential PMO-ID based on existing projects.
+ * Scans all PMO-IDs (e.g. PMO-GOV-001, PMO-GOV-862) to find the highest number,
+ * then returns the next number in sequence (e.g. 863 -> PMO-GOV-863).
+ */
+export function getNextPmoIdInfo(projects: ProjectData[] = []) {
+  let maxPmoNumber = 0;
+  for (const p of projects) {
+    if (p.pmoId) {
+      const match = p.pmoId.match(/PMO-GOV-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxPmoNumber) {
+          maxPmoNumber = num;
+        }
+      }
+    }
+  }
+
+  const nextNumber = maxPmoNumber > 0 ? maxPmoNumber + 1 : 1;
+  const pmoNumberStr = String(nextNumber).padStart(3, '0');
+  const pmoId = `PMO-GOV-${pmoNumberStr}`;
+  return {
+    nextNumber,
+    pmoNumberStr,
+    pmoId,
+    rawPmoId: pmoId
+  };
 }
 
 export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
@@ -60,6 +91,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   onSave,
   initialData,
   totalProjects,
+  existingProjects,
 }) => {
   const [activeFormTab, setActiveFormTab] = useState<number>(1);
   const [formData, setFormData] = useState<Partial<ProjectData>>({});
@@ -76,14 +108,16 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       if (initialData) {
         setFormData({ ...initialData });
       } else {
-        // Generate new project default template
-        const nextNo = totalProjects + 1;
-        const pmoNumber = String(nextNo).padStart(3, '0');
+        // Generate new project default template with automatic PMO-ID sequence
+        const nextNo = (existingProjects?.length || totalProjects) + 1;
+        const initialCategory = 'GOV IPPJU';
+        const nextPmo = getNextPmoIdInfo(existingProjects || []);
+
         setFormData({
           id: `proj-${Date.now()}`,
           no: nextNo,
-          pmoId: `PMO-GOV-${pmoNumber}`,
-          projectCategory: 'GOV IPPJU',
+          pmoId: nextPmo.pmoId,
+          projectCategory: initialCategory,
           projectId: '',
           projectDescription: '',
           zona: 'Jabo 1',
@@ -91,16 +125,16 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           projectStatus: 'Masih Review Dinas',
           quarter: 'Q1-26',
           picSectionHead: 'Mega',
-          namaVendor: 'Belum Ada Vendor',
+          namaVendor: '',
           dateSuratPerintahRelokasi: '',
-          bulan: 'November',
-          tahun: '2024',
-          panjangRelokasi: 1000,
-          apdRelokasi: 'Belum',
-          kmzRelokasi: 'Belum',
-          statusAudit: 'Belum',
-          apdLinknet: 'Not Yet',
-          statusSurvey: 'Belum',
+          bulan: '',
+          tahun: '',
+          panjangRelokasi: 0,
+          apdRelokasi: '',
+          kmzRelokasi: '',
+          statusAudit: '',
+          apdLinknet: '',
+          statusSurvey: '',
           baSurvey: '',
           ceMaterial: '',
           sphBoq: '',
@@ -112,26 +146,26 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           estimasiPemutusan: '',
           tanggalPemutusan: '',
           remarksPlan: '',
-          statusPengajuanProject: '',
+          statusPengajuanProject: 'Not Yet',
           tanggalPengajuanMr: '',
           tanggalPengajuanPo: '',
           statusPengajuanMr: 'N/A',
           statusPengajuanPo: 'N/A',
           mrNumber: '',
           poNumber: '',
-          planPengambilanMaterial: '',
-          statusMaterialLocation: '',
+          planPengambilanMaterial: 'Not Yet',
+          statusMaterialLocation: 'Not Yet',
           pengajuanProjectRemarks: '',
           statusMaterialReturn: '',
           tanggalPlanReturn: '',
           tanggalReturn: '',
-          statusDokumenClosing: '',
+          statusDokumenClosing: 'Not Yet',
           closingRemarks: '',
           preProjectRemarks: '',
           remarksProject: '',
           statusConstruction: 'Project Not Started',
           statusLabor: 'N/A',
-          statusMaterial: 'N/A',
+          statusMaterial: 'Not Yet',
           statusPullingCableFo: 'Not Yet',
           pullingFoPanjangSelesai: 0,
           pullingFoPanjangTotal: 1000,
@@ -157,7 +191,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         });
       }
     }
-  }, [isOpen, initialData, totalProjects]);
+  }, [isOpen, initialData, totalProjects, existingProjects]);
 
   if (!isOpen) return null;
 
@@ -417,15 +451,20 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    PMO - ID <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      PMO - ID <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+                      Otomatis Terurut
+                    </span>
+                  </div>
                   <input
                     type="text"
                     value={formData.pmoId || ''}
                     onChange={(e) => handleChange('pmoId', e.target.value)}
-                    placeholder="e.g. PMO-GOV-001"
-                    className={`w-full px-3 py-1.5 text-xs rounded-md border font-mono ${
+                    placeholder="e.g. PMO-GOV-863"
+                    className={`w-full px-3 py-1.5 text-xs rounded-md border font-mono font-medium ${
                       errors.pmoId ? 'border-rose-500 bg-rose-50' : 'border-slate-300'
                     } focus:outline-none focus:ring-1 focus:ring-sky-500`}
                   />

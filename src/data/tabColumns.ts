@@ -16,8 +16,13 @@ export const PROJECT_LIST_COLUMNS: ColumnDefinition[] = [
 
 // 2. Tab "Construction & Plan" columns (Image 2 header)
 export const CONSTRUCTION_PLAN_COLUMNS: ColumnDefinition[] = [
+  { key: 'no', label: 'No.', width: '60px', align: 'center', isNumeric: true },
   { key: 'pmoId', label: 'PMO - ID', width: '130px', align: 'left' },
-  { key: 'projectDescription', label: 'Project Description', width: '240px', align: 'left' },
+  { key: 'projectCategory', label: 'Project Category', width: '140px', align: 'left', badgeType: 'category' },
+  { key: 'projectId', label: 'Project ID', width: '120px', align: 'left' },
+  { key: 'projectDescription', label: 'Project Description', width: '250px', align: 'left' },
+  { key: 'zona', label: 'Zona', width: '90px', align: 'center' },
+  { key: 'areaKota', label: 'Area/Kota', width: '100px', align: 'left' },
   { key: 'namaVendor', label: 'Nama Vendor', width: '150px', align: 'left', badgeType: 'vendor' },
   { key: 'dateSuratPerintahRelokasi', label: 'Date Surat Perintah Relokasi', width: '180px', align: 'center' },
   { key: 'bulan', label: 'Bulan', width: '110px', align: 'left' },
@@ -43,8 +48,13 @@ export const CONSTRUCTION_PLAN_COLUMNS: ColumnDefinition[] = [
 
 // 3. Tab "Status Project" columns (Image 3 header)
 export const STATUS_PROJECT_COLUMNS: ColumnDefinition[] = [
+  { key: 'no', label: 'No.', width: '60px', align: 'center', isNumeric: true },
   { key: 'pmoId', label: 'PMO - ID', width: '130px', align: 'left' },
-  { key: 'projectDescription', label: 'Project Description', width: '240px', align: 'left' },
+  { key: 'projectCategory', label: 'Project Category', width: '140px', align: 'left', badgeType: 'category' },
+  { key: 'projectId', label: 'Project ID', width: '120px', align: 'left' },
+  { key: 'projectDescription', label: 'Project Description', width: '250px', align: 'left' },
+  { key: 'zona', label: 'Zona', width: '90px', align: 'center' },
+  { key: 'areaKota', label: 'Area/Kota', width: '100px', align: 'left' },
   { key: 'statusPengajuanProject', label: 'Status Pengajuan Project', width: '180px', align: 'left', badgeType: 'status' },
   { key: 'tanggalPengajuanMr', label: 'Tanggal Pengajuan MR', width: '170px', align: 'center' },
   { key: 'tanggalPengajuanPo', label: 'Tanggal Pengajuan PO', width: '170px', align: 'center' },
@@ -66,8 +76,13 @@ export const STATUS_PROJECT_COLUMNS: ColumnDefinition[] = [
 
 // 4. Tab "Status Construction" columns (Image 4 header)
 export const STATUS_CONSTRUCTION_COLUMNS: ColumnDefinition[] = [
+  { key: 'no', label: 'No.', width: '60px', align: 'center', isNumeric: true },
   { key: 'pmoId', label: 'PMO - ID', width: '130px', align: 'left' },
-  { key: 'projectDescription', label: 'Project Description', width: '240px', align: 'left' },
+  { key: 'projectCategory', label: 'Project Category', width: '140px', align: 'left', badgeType: 'category' },
+  { key: 'projectId', label: 'Project ID', width: '120px', align: 'left' },
+  { key: 'projectDescription', label: 'Project Description', width: '250px', align: 'left' },
+  { key: 'zona', label: 'Zona', width: '90px', align: 'center' },
+  { key: 'areaKota', label: 'Area/Kota', width: '100px', align: 'left' },
   { key: 'statusConstruction', label: 'Status Construction', width: '180px', align: 'left', badgeType: 'status' },
   { key: 'statusLabor', label: 'Status Labor', width: '130px', align: 'left' },
   { key: 'statusMaterial', label: 'Status Material', width: '150px', align: 'left' },
