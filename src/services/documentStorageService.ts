@@ -147,6 +147,45 @@ class DocumentStorageService {
     return false;
   }
 
+  // Edit / update metadata (notes, customName) for an existing uploaded document
+  public updateDocumentMeta(
+    project: ProjectData,
+    slotKey: DocumentTypeKey,
+    updates: { notes?: string; customName?: string }
+  ): boolean {
+    this.loadFromStorage();
+    const key = project.pmoId || project.id;
+    const record = this.cache.get(key);
+
+    if (record && record.documents[slotKey]) {
+      const doc = record.documents[slotKey]!;
+      if (updates.notes !== undefined) doc.notes = updates.notes;
+      if (updates.customName !== undefined) doc.customName = updates.customName;
+      doc.updatedAt = new Date().toISOString();
+      record.updatedAt = new Date().toISOString();
+      this.persist();
+      return true;
+    }
+
+    return false;
+  }
+
+  // Clear all documents for a project
+  public clearAllDocuments(project: ProjectData): boolean {
+    this.loadFromStorage();
+    const key = project.pmoId || project.id;
+    const record = this.cache.get(key);
+
+    if (record) {
+      record.documents = {};
+      record.updatedAt = new Date().toISOString();
+      this.persist();
+      return true;
+    }
+
+    return false;
+  }
+
   // Trigger download of an uploaded file
   public downloadDocument(meta: UploadedFileMeta): void {
     if (meta.dataUrl) {

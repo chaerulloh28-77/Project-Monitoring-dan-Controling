@@ -8,6 +8,9 @@ export interface UploadedFileMeta {
   type: string;
   uploadedAt: string;
   dataUrl?: string; // base64 representation for download/preview
+  notes?: string;   // catatan tambahan / nomor surat / keterangan
+  customName?: string; // nama kustom / alias dokumen
+  updatedAt?: string;  // waktu pembaruan terakhir
 }
 
 export type DocumentTypeKey =
