@@ -50,6 +50,7 @@ import { ProjectDetailDrawer } from './components/ProjectDetailDrawer';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { ClearAllConfirmModal } from './components/ClearAllConfirmModal';
 import { SecurityBadgeModal } from './components/SecurityBadgeModal';
+import { UploadDocumentView } from './components/UploadDocumentView';
 
 export default function App() {
   // Master projects dataset (387 projects)
@@ -377,7 +378,15 @@ export default function App() {
           setEditingProject(null);
           setIsFormModalOpen(true);
         }}
-        onExportCsv={() => storageService.exportToCsv(projects)}
+        projects={projects}
+        onExportExcel={(zonaFilter) => {
+          const res = storageService.exportToMultiSheetExcel(projects, zonaFilter);
+          if (res.success) {
+            showToast(`File Excel 4 Sheet [${res.label}] berhasil diunduh (${res.count} proyek).`);
+          } else {
+            showToast('Tidak ada data proyek untuk diekspor pada pilihan ini.');
+          }
+        }}
         lastSavedTime={lastSavedTime}
         totalProjects={projects.length}
         onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
@@ -424,7 +433,7 @@ export default function App() {
 
               <div className="flex flex-wrap items-center justify-end gap-2.5">
                 {/* View Mode Switcher: Tabel Standar, Tabel Compact, Card Grid */}
-                {activeTab !== 'project-tracking-pipeline' || pipelineViewMode === 'sheet' ? (
+                {(activeTab !== 'project-tracking-pipeline' && activeTab !== 'upload-document') || pipelineViewMode === 'sheet' ? (
                   <div className="flex items-center bg-slate-100/90 p-1 rounded-lg border border-slate-200/90 text-xs">
                     <button
                       type="button"
@@ -545,31 +554,42 @@ export default function App() {
               </div>
             </div>
 
-            {/* Filter and Search Bar */}
-            <FilterBar
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              selectedZona={selectedZona}
-              onZonaChange={setSelectedZona}
-              selectedArea={selectedArea}
-              onAreaChange={setSelectedArea}
-              selectedVendor={selectedVendor}
-              onVendorChange={setSelectedVendor}
-              selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-              selectedStatus={selectedStatus}
-              onStatusChange={setSelectedStatus}
-              selectedQuarter={selectedQuarter}
-              onQuarterChange={setSelectedQuarter}
-              selectedPic={selectedPic}
-              onPicChange={setSelectedPic}
-              onResetFilters={handleResetFilters}
-              totalResults={filteredProjects.length}
-              allProjects={projects}
-            />
+            {/* Filter and Search Bar (Tabs 1-5) */}
+            {activeTab !== 'upload-document' && (
+              <FilterBar
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                selectedZona={selectedZona}
+                onZonaChange={setSelectedZona}
+                selectedArea={selectedArea}
+                onAreaChange={setSelectedArea}
+                selectedVendor={selectedVendor}
+                onVendorChange={setSelectedVendor}
+                selectedCategory={selectedCategory}
+                onCategoryChange={setSelectedCategory}
+                selectedStatus={selectedStatus}
+                onStatusChange={setSelectedStatus}
+                selectedQuarter={selectedQuarter}
+                onQuarterChange={setSelectedQuarter}
+                selectedPic={selectedPic}
+                onPicChange={setSelectedPic}
+                onResetFilters={handleResetFilters}
+                totalResults={filteredProjects.length}
+                allProjects={projects}
+              />
+            )}
 
-            {/* 3. Main View Area (Board, Card Grid, or Table View) */}
-            {activeTab === 'project-tracking-pipeline' && pipelineViewMode === 'board' ? (
+            {/* 3. Main View Area (Upload Document, Board, Card Grid, or Table View) */}
+            {activeTab === 'upload-document' ? (
+              <UploadDocumentView
+                projects={projects}
+                onOpenNewProject={() => {
+                  setEditingProject(null);
+                  setIsFormModalOpen(true);
+                }}
+                showToast={showToast}
+              />
+            ) : activeTab === 'project-tracking-pipeline' && pipelineViewMode === 'board' ? (
               <PipelineBoard
                 projects={filteredProjects}
                 onViewDetail={(proj) => {

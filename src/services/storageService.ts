@@ -2,6 +2,18 @@ import { ProjectData } from '../types/project';
 import { INITIAL_PROJECTS } from '../data/initialData';
 import { calculatePullingFoPercentage, calculatePullingCoaxPercentage } from '../data/dropdownOptions';
 import { securityGuard } from './securityGuard';
+import * as XLSX from 'xlsx';
+import { 
+  PROJECT_LIST_COLUMNS, 
+  CONSTRUCTION_PLAN_COLUMNS, 
+  STATUS_PROJECT_COLUMNS, 
+  STATUS_CONSTRUCTION_COLUMNS 
+} from '../data/tabColumns';
+import { 
+  JaboExportScope, 
+  filterProjectsByScope, 
+  getScopeInfo 
+} from '../utils/jaboScope';
 
 const STORAGE_KEY = 'PMO_PROJECTS_DATA_V8';
 
@@ -147,9 +159,15 @@ export const storageService = {
     return initial;
   },
 
-  // Export current data to Excel-ready CSV
-  exportToCsv(projects: ProjectData[]): void {
+  // Export current data to Excel-ready CSV (with optional Jabo Scope filter)
+  exportToCsv(projects: ProjectData[], zonaFilter?: JaboExportScope | string): void {
     if (!projects || projects.length === 0) return;
+
+    const scope: JaboExportScope = (zonaFilter as JaboExportScope) || 'ALL';
+    const targetProjects = filterProjectsByScope(projects, scope);
+    const scopeInfo = getScopeInfo(scope);
+
+    if (targetProjects.length === 0) return;
 
     const headers = [
       'No',
@@ -224,7 +242,7 @@ export const storageService = {
       return `"${str}"`;
     };
 
-    const rows = projects.map((p, idx) => [
+    const rows = targetProjects.map((p, idx) => [
       idx + 1,
       escapeCsv(p.pmoId),
       escapeCsv(p.projectCategory),
@@ -292,16 +310,134 @@ export const storageService = {
     ].join(','));
 
     const digitalSeal = securityGuard.generateExportSeal();
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows, `"# [SECURITY_AUDIT] Hak Cipta Dilindungi © PAUL | ${digitalSeal}"`].join('\r\n');
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows, `"# [SECURITY_AUDIT] Hak Cipta Dilindungi © PAUL | Scope: ${scopeInfo.label} | ${digitalSeal}"`].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Project_Monitoring_dan_Controling_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Project_Monitoring_Report_${scopeInfo.filenameKey}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  },
+
+  // Export 1 Excel File consisting of 4 distinct sheets as requested:
+  // 1. Project list
+  // 2. Construction & Plan
+  // 3. Status Project
+  // 4. Status Construction
+  // Option: Semua Report (Semua Zona) or per Jabo 1 (Central/West), Jabo 2 (South/Banten/PIC Aris/Chaerul), Jabo 3 (NE/Bekasi/Karawang)
+  exportToMultiSheetExcel(
+    projects: ProjectData[], 
+    zonaFilter?: JaboExportScope | string
+  ): { success: boolean; count: number; filename: string; label: string } {
+    if (!projects || projects.length === 0) {
+      return { success: false, count: 0, filename: '', label: '' };
+    }
+
+    const scope: JaboExportScope = (zonaFilter as JaboExportScope) || 'ALL';
+    const targetProjects = filterProjectsByScope(projects, scope);
+    const scopeInfo = getScopeInfo(scope);
+
+    if (targetProjects.length === 0) {
+      return { success: false, count: 0, filename: '', label: scopeInfo.label };
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Project list
+    const ws1Headers = PROJECT_LIST_COLUMNS.map((col) => col.label);
+    const ws1Rows = targetProjects.map((p, idx) =>
+      PROJECT_LIST_COLUMNS.map((col) => {
+        if (col.key === 'no') return idx + 1;
+        const val = p[col.key];
+        return val !== undefined && val !== null ? val : '';
+      })
+    );
+    const ws1 = XLSX.utils.aoa_to_sheet([ws1Headers, ...ws1Rows]);
+    ws1['!cols'] = PROJECT_LIST_COLUMNS.map((col) => ({
+      wch: Math.max(col.label.length + 3, 14),
+    }));
+    XLSX.utils.book_append_sheet(wb, ws1, 'Project list');
+
+    // Sheet 2: Construction & Plan
+    const ws2Headers = CONSTRUCTION_PLAN_COLUMNS.map((col) => col.label);
+    const ws2Rows = targetProjects.map((p, idx) =>
+      CONSTRUCTION_PLAN_COLUMNS.map((col) => {
+        if (col.key === 'no') return idx + 1;
+        const val = p[col.key];
+        return val !== undefined && val !== null ? val : '';
+      })
+    );
+    const ws2 = XLSX.utils.aoa_to_sheet([ws2Headers, ...ws2Rows]);
+    ws2['!cols'] = CONSTRUCTION_PLAN_COLUMNS.map((col) => ({
+      wch: Math.max(col.label.length + 3, 14),
+    }));
+    XLSX.utils.book_append_sheet(wb, ws2, 'Construction & Plan');
+
+    // Sheet 3: Status Project
+    const ws3Headers = STATUS_PROJECT_COLUMNS.map((col) => col.label);
+    const ws3Rows = targetProjects.map((p, idx) =>
+      STATUS_PROJECT_COLUMNS.map((col) => {
+        if (col.key === 'no') return idx + 1;
+        const val = p[col.key];
+        return val !== undefined && val !== null ? val : '';
+      })
+    );
+    const ws3 = XLSX.utils.aoa_to_sheet([ws3Headers, ...ws3Rows]);
+    ws3['!cols'] = STATUS_PROJECT_COLUMNS.map((col) => ({
+      wch: Math.max(col.label.length + 3, 14),
+    }));
+    XLSX.utils.book_append_sheet(wb, ws3, 'Status Project');
+
+    // Sheet 4: Status Construction
+    const ws4Headers = STATUS_CONSTRUCTION_COLUMNS.map((col) => col.label);
+    const ws4Rows = targetProjects.map((p, idx) =>
+      STATUS_CONSTRUCTION_COLUMNS.map((col) => {
+        if (col.key === 'no') return idx + 1;
+        const val = p[col.key];
+        return val !== undefined && val !== null ? val : '';
+      })
+    );
+    const ws4 = XLSX.utils.aoa_to_sheet([ws4Headers, ...ws4Rows]);
+    ws4['!cols'] = STATUS_CONSTRUCTION_COLUMNS.map((col) => ({
+      wch: Math.max(col.label.length + 3, 14),
+    }));
+    XLSX.utils.book_append_sheet(wb, ws4, 'Status Construction');
+
+    const filename = `Project_Monitoring_Report_${scopeInfo.filenameKey}_4_Sheets_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    // Set workbook metadata & digital security seal
+    wb.Props = {
+      Title: `Project Monitoring dan Controling Report - ${scopeInfo.label}`,
+      Subject: `Multi-Sheet Project Management Master Report (${scopeInfo.tag} - ${targetProjects.length} Proyek)`,
+      Author: 'PAUL',
+      Company: 'PMO System © PAUL',
+      Comments: scopeInfo.description,
+      CreatedDate: new Date(),
+    };
+
+    // Generate binary buffer and download .xlsx
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    return { 
+      success: true, 
+      count: targetProjects.length, 
+      filename, 
+      label: scopeInfo.label 
+    };
   },
 
   // Export current data to JSON

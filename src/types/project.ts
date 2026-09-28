@@ -106,7 +106,8 @@ export type TabKey =
   | 'construction-plan' 
   | 'status-project' 
   | 'status-construction' 
-  | 'project-tracking-pipeline';
+  | 'project-tracking-pipeline'
+  | 'upload-document';
 
 export interface ColumnDefinition {
   key: keyof ProjectData;

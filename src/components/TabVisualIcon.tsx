@@ -6,7 +6,8 @@ import {
   HardHat,
   GitFork,
   Radio,
-  Workflow
+  Workflow,
+  FileUp
 } from 'lucide-react';
 import { TabKey } from '../types/project';
 
@@ -79,6 +80,17 @@ export const TabVisualIcon: React.FC<TabVisualIconProps> = ({
           inactiveBg: 'bg-slate-800 text-purple-400 group-hover:bg-slate-700/80 group-hover:text-purple-300 ring-1 ring-slate-700/60',
           lightBg: 'bg-purple-100 text-purple-700 ring-1 ring-purple-200',
           pulseColor: 'bg-purple-400',
+        };
+      case 'upload-document':
+        return {
+          icon: FileUp,
+          name: 'Upload Document',
+          num: '6',
+          solidColor: 'from-cyan-500 to-teal-600 text-white shadow-cyan-500/30',
+          activeBg: 'bg-gradient-to-br from-cyan-500/25 to-teal-600/25 text-cyan-300 ring-1 ring-cyan-400/40',
+          inactiveBg: 'bg-slate-800 text-cyan-400 group-hover:bg-slate-700/80 group-hover:text-cyan-300 ring-1 ring-slate-700/60',
+          lightBg: 'bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200',
+          pulseColor: 'bg-cyan-400',
         };
       default:
         return {

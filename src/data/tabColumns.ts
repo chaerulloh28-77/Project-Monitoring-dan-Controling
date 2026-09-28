@@ -135,4 +135,5 @@ export const TAB_CONFIG = [
   { id: 'status-project' as TabKey, label: '3. Status Project', description: 'Pengajuan project, MR, PO & closing dokumen' },
   { id: 'status-construction' as TabKey, label: '4. Status Construction', description: 'Progress fisik, galian, kabel & SAP closing' },
   { id: 'project-tracking-pipeline' as TabKey, label: '5. Project Tracking Pipeline', description: 'Pelacakan menyeluruh pipeline, tahapan & progres lintas sheet' },
+  { id: 'upload-document' as TabKey, label: '6. Upload Document', description: 'Unggah berkas proyek: MR, Surat Dinas, Rekomtek, APD, KMZ, BA Survey, BOQ & Timeline' },
 ];

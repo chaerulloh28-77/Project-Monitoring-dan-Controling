@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Building2, 
   Plus, 
@@ -6,15 +6,26 @@ import {
   Menu,
   Trash2,
   RotateCcw,
-  ShieldCheck
+  ShieldCheck,
+  ChevronDown,
+  MapPin,
+  FileSpreadsheet
 } from 'lucide-react';
-import { TabKey } from '../types/project';
+import { TabKey, ProjectData } from '../types/project';
+import { 
+  isProjectInJabo1, 
+  isProjectInJabo2, 
+  isProjectInJabo3,
+  JaboExportScope 
+} from '../utils/jaboScope';
 
 interface HeaderProps {
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
   onNewProject: () => void;
-  onExportCsv: () => void;
+  onExportCsv?: () => void;
+  onExportExcel?: (zonaFilter: 'ALL' | 'Jabo 1' | 'Jabo 2' | 'Jabo 3') => void;
+  projects?: ProjectData[];
   lastSavedTime: string;
   totalProjects: number;
   onToggleSidebar?: () => void;
@@ -29,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   onTabChange,
   onNewProject,
   onExportCsv,
+  onExportExcel,
+  projects = [],
   lastSavedTime,
   totalProjects,
   onToggleSidebar,
@@ -37,6 +50,37 @@ export const Header: React.FC<HeaderProps> = ({
   onRestoreDefaults,
   onOpenSecurity,
 }) => {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    if (isExportMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isExportMenuOpen]);
+
+  // Compute live project counts per scope
+  const jabo1Count = useMemo(() => projects.filter(isProjectInJabo1).length, [projects]);
+  const jabo2Count = useMemo(() => projects.filter(isProjectInJabo2).length, [projects]);
+  const jabo3Count = useMemo(() => projects.filter(isProjectInJabo3).length, [projects]);
+
+  const handleTriggerExport = (zona: JaboExportScope) => {
+    setIsExportMenuOpen(false);
+    if (onExportExcel) {
+      onExportExcel(zona);
+    } else if (onExportCsv) {
+      onExportCsv();
+    }
+  };
   return (
     <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white sticky top-0 z-30 shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -129,16 +173,145 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Export CSV Button */}
-            <button
-              onClick={onExportCsv}
-              disabled={totalProjects === 0}
-              title={totalProjects === 0 ? 'Tidak ada data untuk diekspor' : 'Ekspor seluruh data ke file Excel CSV'}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 bg-slate-800/90 border border-slate-700/80 rounded-lg hover:text-white hover:bg-slate-750 hover:border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
-            >
-              <Download className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">Export Excel</span>
-            </button>
+            {/* Export Multi-Sheet Excel Dropdown (All or per Jabo 1, Jabo 2, Jabo 3) */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                disabled={totalProjects === 0}
+                title="Pilih opsi export Excel 4 Sheet (Semua Report atau per Jabo 1, Jabo 2, Jabo 3)"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/40 border border-emerald-700/60 rounded-lg hover:text-white hover:bg-emerald-900/60 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
+              >
+                <Download className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="hidden sm:inline">Export Excel</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-emerald-400 transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isExportMenuOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700/90 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ring-1 ring-black/40">
+                  <div className="px-3.5 py-2.5 bg-slate-950/90 border-b border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                        Export Excel (4 Sheet)
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                        .XLSX
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Pilih cakupan data untuk diekspor ke file Excel:
+                    </p>
+                  </div>
+
+                  <div className="p-1.5 space-y-1">
+                    {/* Option 1: Semua Report */}
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerExport('ALL')}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left rounded-lg hover:bg-emerald-950/50 hover:border-emerald-800/60 border border-transparent text-slate-200 transition-all group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                          <FileSpreadsheet className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-white block group-hover:text-emerald-300 transition-colors">
+                            Semua Report (Semua Zona)
+                          </span>
+                          <span className="text-[11px] text-slate-400 truncate block">
+                            Jabo 1, Jabo 2, Jabo 3 • 4 Sheet
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 text-[11px] font-mono font-bold bg-slate-800 group-hover:bg-emerald-900/60 text-slate-300 group-hover:text-emerald-200 rounded border border-slate-700 group-hover:border-emerald-700/60 shrink-0 ml-2">
+                        {totalProjects}
+                      </span>
+                    </button>
+
+                    <div className="h-px bg-slate-800/80 my-1 mx-2" />
+
+                    {/* Option 2: Jabo 1 */}
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerExport('Jabo 1')}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left rounded-lg hover:bg-sky-950/50 hover:border-sky-800/60 border border-transparent text-slate-200 transition-all group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-sky-200 block group-hover:text-sky-100 transition-colors">
+                            Report Khusus Jabo 1
+                          </span>
+                          <span className="text-[11px] text-slate-400 truncate block">
+                            Area Central & West
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 text-[11px] font-mono font-bold bg-sky-950 group-hover:bg-sky-900/60 text-sky-300 rounded border border-sky-800/60 shrink-0 ml-2">
+                        {jabo1Count}
+                      </span>
+                    </button>
+
+                    {/* Option 3: Jabo 2 */}
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerExport('Jabo 2')}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left rounded-lg hover:bg-purple-950/50 hover:border-purple-800/60 border border-transparent text-slate-200 transition-all group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-purple-200 block group-hover:text-purple-100 transition-colors">
+                            Report Khusus Jabo 2
+                          </span>
+                          <span className="text-[11px] text-slate-400 truncate block">
+                            Area South, Tangsel, Banten, Depok, Bogor (Jaktim & Jaksel PIC Aris/Chaerul)
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 text-[11px] font-mono font-bold bg-purple-950 group-hover:bg-purple-900/60 text-purple-300 rounded border border-purple-800/60 shrink-0 ml-2">
+                        {jabo2Count}
+                      </span>
+                    </button>
+
+                    {/* Option 4: Jabo 3 */}
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerExport('Jabo 3')}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left rounded-lg hover:bg-amber-950/50 hover:border-amber-800/60 border border-transparent text-slate-200 transition-all group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-amber-200 block group-hover:text-amber-100 transition-colors">
+                            Report Khusus Jabo 3
+                          </span>
+                          <span className="text-[11px] text-slate-400 truncate block">
+                            Area NE, Bekasi, Karawang
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 text-[11px] font-mono font-bold bg-amber-950 group-hover:bg-amber-900/60 text-amber-300 rounded border border-amber-800/60 shrink-0 ml-2">
+                        {jabo3Count}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="px-3.5 py-2 bg-slate-950/90 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+                    <span>1 File berisi 4 Sheet terstruktur</span>
+                    <span className="text-emerald-400 font-medium">© PAUL Security</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Add New Project Button */}
             <button

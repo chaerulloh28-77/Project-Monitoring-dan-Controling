@@ -35,6 +35,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       case 'status-project': return '3';
       case 'status-construction': return '4';
       case 'project-tracking-pipeline': return '5';
+      case 'upload-document': return '6';
       default: return '•';
     }
   };
