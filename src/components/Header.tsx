@@ -9,7 +9,9 @@ import {
   ShieldCheck,
   ChevronDown,
   MapPin,
-  FileSpreadsheet
+  FileSpreadsheet,
+  User,
+  LogOut
 } from 'lucide-react';
 import { TabKey, ProjectData } from '../types/project';
 import { 
@@ -33,6 +35,8 @@ interface HeaderProps {
   onClearAll?: () => void;
   onRestoreDefaults?: () => void;
   onOpenSecurity?: () => void;
+  currentUser?: { email: string; name: string } | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,6 +53,8 @@ export const Header: React.FC<HeaderProps> = ({
   onClearAll,
   onRestoreDefaults,
   onOpenSecurity,
+  currentUser,
+  onLogout,
 }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -135,19 +141,6 @@ export const Header: React.FC<HeaderProps> = ({
                 Tersimpan {lastSavedTime ? new Date(lastSavedTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Auto'}
               </span>
             </div>
-
-            {/* Security Guard Shield Badge */}
-            {onOpenSecurity && (
-              <button
-                type="button"
-                onClick={onOpenSecurity}
-                title="Sistem Keamanan & Anti-Kloning Aktif (Klik untuk melihat sertifikat lisensi © PAUL)"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/60 hover:text-white transition-all cursor-pointer text-xs shadow-2xs"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="hidden md:inline font-mono text-[11px] font-medium">Security Guard</span>
-              </button>
-            )}
 
             {/* Clear all projects button when projects exist */}
             {totalProjects > 0 && onClearAll && (
@@ -321,6 +314,35 @@ export const Header: React.FC<HeaderProps> = ({
               <Plus className="w-4 h-4" />
               <span>Tambah Project</span>
             </button>
+
+            {/* Current Logged-in User Profile & Logout */}
+            {currentUser && (
+              <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-700/80">
+                <div 
+                  title={`Petugas: ${currentUser.name} (${currentUser.email})`}
+                  className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-xs text-slate-200"
+                >
+                  <div className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                    <User className="w-3 h-3" />
+                  </div>
+                  <span className="font-medium truncate max-w-[120px] text-[11px] text-slate-300">
+                    {currentUser.name}
+                  </span>
+                </div>
+
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    title="Keluar dari akun (Logout)"
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg border border-transparent hover:border-rose-900/60 transition-all cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span className="hidden sm:inline text-[11px]">Keluar</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

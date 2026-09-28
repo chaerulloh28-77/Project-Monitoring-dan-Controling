@@ -51,8 +51,13 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { ClearAllConfirmModal } from './components/ClearAllConfirmModal';
 import { SecurityBadgeModal } from './components/SecurityBadgeModal';
 import { UploadDocumentView } from './components/UploadDocumentView';
+import { LoginPage } from './components/LoginPage';
+import { authService, AuthUser } from './services/authService';
 
 export default function App() {
+  // Current user authentication state
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => authService.getCurrentUser());
+
   // Master projects dataset (387 projects)
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>('project-list');
@@ -368,6 +373,26 @@ export default function App() {
 
   const currentTabMeta = TAB_CONFIG.find((t) => t.id === activeTab) || TAB_CONFIG[0];
 
+  // If user is not authenticated, display login screen
+  if (!currentUser) {
+    return (
+      <>
+        <LoginPage 
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            showToast(`Selamat datang, ${user.name}!`);
+          }} 
+        />
+        {toastMessage && (
+          <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700/80 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span className="text-xs font-medium">{toastMessage}</span>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="h-screen bg-slate-100 flex flex-col antialiased text-slate-800 overflow-hidden">
       {/* 1. Top Navigation Bar */}
@@ -394,6 +419,12 @@ export default function App() {
         onClearAll={() => setIsClearAllModalOpen(true)}
         onRestoreDefaults={handleRestoreDefaultProjects}
         onOpenSecurity={() => setIsSecurityModalOpen(true)}
+        currentUser={currentUser}
+        onLogout={() => {
+          authService.logout();
+          setCurrentUser(null);
+          showToast('Anda telah berhasil keluar dari aplikasi.');
+        }}
       />
 
       {/* Main Body Container with Left Sidebar & Content */}
@@ -648,26 +679,16 @@ export default function App() {
               />
             )}
 
-            {/* Footer Copyright & Security Status */}
+            {/* Footer Copyright */}
             <footer className="mt-8 mb-4 pt-4 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-slate-700">Project Monitoring dan Controling</span>
                 <span>•</span>
                 <span className="font-medium text-sky-700">© PAUL</span>
               </div>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => setIsSecurityModalOpen(true)}
-                  className="flex items-center gap-1.5 text-[11px] text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer transition-colors"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Security Guard Aktif (© PAUL Protected)</span>
-                </button>
-                <p className="text-[11px] text-slate-400 hidden sm:inline">
-                  Hak Cipta Dilindungi Undang-Undang
-                </p>
-              </div>
+              <p className="text-[11px] text-slate-400">
+                Hak Cipta Dilindungi Undang-Undang
+              </p>
             </footer>
           </div>
         </main>
