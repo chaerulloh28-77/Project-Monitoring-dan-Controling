@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, X, Filter, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { ProjectData, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
-import { ZONA_OPTIONS } from '../data/dropdownOptions';
+import { ZONA_OPTIONS, NAMA_VENDOR_OPTIONS } from '../data/dropdownOptions';
 
 interface FilterBarProps {
   searchTerm: string;
@@ -48,7 +48,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 }) => {
   // Extract distinct option sets for dropdowns
   const uniqueAreas = Array.from(new Set(allProjects.map((p) => p.areaKota).filter(Boolean))).sort();
-  const uniqueVendors = Array.from(new Set(allProjects.map((p) => p.namaVendor).filter(Boolean))).sort();
+  const uniqueVendors = Array.from(
+    new Set([...NAMA_VENDOR_OPTIONS, ...allProjects.map((p) => (p.namaVendor || '').trim().toUpperCase()).filter(Boolean)])
+  ).sort((a, b) => {
+    if (a === 'BELUM ADA VENDOR') return -1;
+    if (b === 'BELUM ADA VENDOR') return 1;
+    if (a === 'INTERNAL TEAM') return -1;
+    if (b === 'INTERNAL TEAM') return 1;
+    return a.localeCompare(b);
+  });
   const uniqueCategories = Array.from(new Set(allProjects.map((p) => p.projectCategory).filter(Boolean))).sort();
   const uniqueStatuses = Array.from(new Set(allProjects.map((p) => p.projectStatus).filter(Boolean))).sort();
   

@@ -14,6 +14,8 @@ import {
   LogOut
 } from 'lucide-react';
 import { TabKey, ProjectData } from '../types/project';
+import { TAB_CONFIG } from '../data/tabColumns';
+import { TabVisualIcon } from './TabVisualIcon';
 import { 
   isProjectInJabo1, 
   isProjectInJabo2, 
@@ -344,6 +346,31 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Horizontal Interactive Tab Bar: 1. Project List, 2. Construction & Plan, 3. Status Project, 4. Status Construction, etc. */}
+      <div className="border-t border-slate-800/90 bg-slate-950/80 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center overflow-x-auto custom-scrollbar gap-1.5 py-1.5 max-w-[1600px] mx-auto">
+          {TAB_CONFIG.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onTabChange(tab.id)}
+                title={tab.description}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-slate-800 text-white border border-sky-500/60 shadow-xs font-semibold ring-1 ring-sky-500/20'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-850 hover:bg-slate-800/60 border border-transparent'
+                }`}
+              >
+                <TabVisualIcon tabKey={tab.id} isActive={isActive} size="sm" variant="badge" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </header>

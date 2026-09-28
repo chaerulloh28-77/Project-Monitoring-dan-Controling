@@ -112,8 +112,9 @@ export const STATUS_PULLING_CABLE_FO_OPTIONS = [
   'Done',
 ] as const;
 
-// Status Pulling Cable COAX: Not Yet, In Progress, Done
+// Status Pulling Cable COAX: No COAX, Not Yet, In Progress, Done
 export const STATUS_PULLING_CABLE_COAX_OPTIONS = [
+  'No COAX',
   'Not Yet',
   'In Progress',
   'Done',
@@ -221,6 +222,7 @@ export function calculatePullingCoaxPercentage(
     return `${pct}%`;
   }
 
+  if (statusCoax === 'No COAX') return 'N/A';
   if (statusCoax === 'Done') return '100%';
   if (statusCoax === 'In Progress') return '50%';
   return '0%';
@@ -237,6 +239,12 @@ export function calculatePullingPercentage(
 ): string {
   if (statusConstruction === 'Completed') return '100%';
   if (statusConstruction === 'Project Cancel' || statusConstruction === 'Cancelled') return '0%';
+
+  if (statusCoax === 'No COAX') {
+    if (statusFo === 'Done') return '100%';
+    if (statusFo === 'In Progress') return '60%';
+    return '0%';
+  }
 
   let foWeight = 0;
   if (statusFo === 'Done') foWeight = 60;
@@ -261,3 +269,70 @@ export function calculatePullingPercentage(
   const total = Math.min(100, foWeight + coaxWeight);
   return `${total}%`;
 }
+
+/**
+ * Standardized list of unique vendors (Opsi Nama Vendor kapital semua tanpa duplikasi, tanpa Mentari Resign)
+ */
+export const NAMA_VENDOR_OPTIONS = [
+  'BELUM ADA VENDOR',
+  'INTERNAL TEAM',
+  'PT.ANT',
+  'PT.ARKON',
+  'PT.BEJO',
+  'PT.BLAO',
+  'PT.CAESAR',
+  'PT.CAI',
+  'PT.CAPER',
+  'PT.CAT',
+  'PT.CITOS',
+  'PT.CMT',
+  'PT.CORE',
+  'PT.CPS',
+  'PT.DAVON',
+  'PT.DES',
+  'PT.EKT',
+  'PT.FAMIKA',
+  'PT.FBI',
+  'PT.FIROPTIK',
+  'PT.FISS',
+  'PT.FITEL',
+  'PT.GEMATI',
+  'PT.GISOS',
+  'PT.GLOBAL LINK',
+  'PT.HPT',
+  'PT.INFRA LINTAS NUSANTARA',
+  'PT.INTAN',
+  'PT.JAN',
+  'PT.JATEK',
+  'PT.JWS',
+  'PT.LISMA',
+  'PT.MANDAU',
+  'PT.MAS',
+  'PT.MENTARI',
+  'PT.MGEN',
+  'PT.MITRA PATRIOT (PERSERODA)',
+  'PT.MJP',
+  'PT.MVT',
+  'PT.NATAMA',
+  'PT.NETCO',
+  'PT.OLT',
+  'PT.OPTICOM',
+  'PT.PCLI',
+  'PT.PHPE',
+  'PT.PICA',
+  'PT.PRAGATA',
+  'PT.RDM',
+  'PT.REKATAMA',
+  'PT.RIMH',
+  'PT.RMB',
+  'PT.RPA',
+  'PT.SABA',
+  'PT.SBKP',
+  'PT.SCKP',
+  'PT.SDM',
+  'PT.SENTRATEL',
+  'PT.SINTATA',
+  'PT.TRIMASS',
+  'PT.TRP',
+] as const;
+

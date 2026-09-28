@@ -27,6 +27,7 @@ import {
   X
 } from 'lucide-react';
 import { ProjectData } from '../types/project';
+import { NAMA_VENDOR_OPTIONS } from '../data/dropdownOptions';
 import { DOCUMENT_SLOTS, DocumentSlotDefinition, UploadedFileMeta, DocumentTypeKey } from '../types/document';
 import { documentStorageService } from '../services/documentStorageService';
 import { ProjectDocumentDetailModal } from './ProjectDocumentDetailModal';
@@ -84,11 +85,22 @@ export const UploadDocumentView: React.FC<UploadDocumentViewProps> = ({
   }, [projects]);
 
   const uniqueVendors = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(NAMA_VENDOR_OPTIONS);
     projects.forEach((p) => {
-      if (p.namaVendor && p.namaVendor.trim()) set.add(p.namaVendor.trim());
+      if (p.namaVendor && p.namaVendor.trim()) {
+        const up = p.namaVendor.trim().toUpperCase();
+        if (!up.includes('RESIGN')) {
+          set.add(up);
+        }
+      }
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => {
+      if (a === 'BELUM ADA VENDOR') return -1;
+      if (b === 'BELUM ADA VENDOR') return 1;
+      if (a === 'INTERNAL TEAM') return -1;
+      if (b === 'INTERNAL TEAM') return 1;
+      return a.localeCompare(b);
+    });
   }, [projects]);
 
   const uniquePics = useMemo(() => {

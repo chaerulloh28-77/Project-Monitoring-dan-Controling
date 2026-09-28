@@ -40,6 +40,7 @@ import {
   HH_SIZE_OPTIONS,
   POLE_OPTIONS,
   GALVANIS_OPTIONS,
+  NAMA_VENDOR_OPTIONS,
   calculateGalianPercentage,
   calculatePullingPercentage,
   calculatePullingFoPercentage,
@@ -147,11 +148,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           tanggalPemutusan: '',
           remarksPlan: '',
           statusPengajuanProject: 'Not Yet',
+          projectCreateDate: '',
+          mrNumber: '',
           tanggalPengajuanMr: '',
           tanggalPengajuanPo: '',
           statusPengajuanMr: 'N/A',
           statusPengajuanPo: 'N/A',
-          mrNumber: '',
           poNumber: '',
           planPengambilanMaterial: 'Not Yet',
           statusMaterialLocation: 'Not Yet',
@@ -607,13 +609,21 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Vendor</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.namaVendor || ''}
                     onChange={(e) => handleChange('namaVendor', e.target.value)}
-                    placeholder="e.g. PT.NATAMA, PT.RPA"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer font-medium"
+                  >
+                    <option value="">-- Pilih Nama Vendor --</option>
+                    {NAMA_VENDOR_OPTIONS.map((vendor) => (
+                      <option key={vendor} value={vendor}>
+                        {vendor}
+                      </option>
+                    ))}
+                    {formData.namaVendor && !(NAMA_VENDOR_OPTIONS as readonly string[]).includes(formData.namaVendor) && (
+                      <option value={formData.namaVendor}>{formData.namaVendor}</option>
+                    )}
+                  </select>
                 </div>
 
                 <div>
@@ -836,55 +846,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Pengajuan MR</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Project Create Date</label>
                   <input
                     type="date"
-                    value={formData.tanggalPengajuanMr || ''}
-                    onChange={(e) => handleChange('tanggalPengajuanMr', e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    value={formData.projectCreateDate || ''}
+                    onChange={(e) => handleChange('projectCreateDate', e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono cursor-pointer"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Pengajuan PO</label>
-                  <input
-                    type="date"
-                    value={formData.tanggalPengajuanPo || ''}
-                    onChange={(e) => handleChange('tanggalPengajuanPo', e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pengajuan MR</label>
-                  <select
-                    value={formData.statusPengajuanMr || 'N/A'}
-                    onChange={(e) => handleChange('statusPengajuanMr', e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  >
-                    <option value="N/A">N/A</option>
-                    <option value="Released">Released</option>
-                    <option value="No Need MR">No Need MR</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Rejected">Rejected</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status Pengajuan PO</label>
-                  <select
-                    value={formData.statusPengajuanPo || 'N/A'}
-                    onChange={(e) => handleChange('statusPengajuanPo', e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  >
-                    <option value="N/A">N/A</option>
-                    <option value="Released">Released</option>
-                    <option value="No Need PO">No Need PO</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Draft">Draft</option>
-                  </select>
                 </div>
 
                 <div>
@@ -894,17 +862,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     value={formData.mrNumber || ''}
                     onChange={(e) => handleChange('mrNumber', e.target.value)}
                     placeholder="e.g. 99434"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">PO Number</label>
-                  <input
-                    type="text"
-                    value={formData.poNumber || ''}
-                    onChange={(e) => handleChange('poNumber', e.target.value)}
-                    placeholder="e.g. PO-89104"
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
                   />
                 </div>

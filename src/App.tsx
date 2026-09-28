@@ -202,6 +202,60 @@ export default function App() {
     }
   }, [activeTab]);
 
+  // Tab-specific summary metrics for informative tab banner
+  const tabStats = useMemo(() => {
+    // 2. Construction & Plan metrics
+    const totalPanjangRelokasi = filteredProjects.reduce((acc, p) => acc + (Number(p.panjangRelokasi) || 0), 0);
+    const doneSurveyCount = filteredProjects.filter((p) => p.statusSurvey === 'Done survey').length;
+    const adaBaCount = filteredProjects.filter((p) => p.baSurvey === 'Ada' || p.baSurvey === 'Sudah BA').length;
+    const adaApdCount = filteredProjects.filter((p) => p.apdRelokasi === 'Ada').length;
+    const uniqueVendorsCount = new Set(filteredProjects.map((p) => p.namaVendor).filter(Boolean)).size;
+
+    // 3. Status Project metrics
+    const releasePengajuanCount = filteredProjects.filter((p) => p.statusPengajuanProject === 'Release').length;
+    const approvedPengajuanCount = filteredProjects.filter((p) => p.statusPengajuanProject === 'Approved').length;
+    const submitPengajuanCount = filteredProjects.filter((p) => p.statusPengajuanProject === 'Submit').length;
+    const notYetPengajuanCount = filteredProjects.filter((p) => !p.statusPengajuanProject || p.statusPengajuanProject === 'Not Yet').length;
+    const hasCreateDateCount = filteredProjects.filter((p) => Boolean(p.projectCreateDate && p.projectCreateDate.trim() !== '')).length;
+    const hasMrNumberCount = filteredProjects.filter((p) => Boolean(p.mrNumber && p.mrNumber.trim() !== '')).length;
+    const closingDoneCount = filteredProjects.filter((p) => p.statusDokumenClosing && p.statusDokumenClosing !== 'Not Yet').length;
+
+    // 4. Status Construction metrics
+    const completedConstructionCount = filteredProjects.filter((p) => p.statusConstruction === 'Completed').length;
+    const pullingCableConstructionCount = filteredProjects.filter((p) => p.statusConstruction === 'Pulling Cable').length;
+    const inProgressConstructionCount = filteredProjects.filter((p) => p.statusConstruction === 'In Progress').length;
+    const pullingFoDoneCount = filteredProjects.filter((p) => p.statusPullingCableFo === 'Done').length;
+    const coaxNoCoaxCount = filteredProjects.filter((p) => p.statusPullingCableCoax === 'No COAX').length;
+    const coaxDoneCount = filteredProjects.filter((p) => p.statusPullingCableCoax === 'Done').length;
+    const coaxInProgressCount = filteredProjects.filter((p) => p.statusPullingCableCoax === 'In Progress').length;
+    const coaxNotYetCount = filteredProjects.filter((p) => !p.statusPullingCableCoax || p.statusPullingCableCoax === 'Not Yet').length;
+    const closingSapDoneCount = filteredProjects.filter((p) => p.closingSap === 'Done' || p.closingSap === 'Yes').length;
+
+    return {
+      totalPanjangRelokasi,
+      doneSurveyCount,
+      adaBaCount,
+      adaApdCount,
+      uniqueVendorsCount,
+      releasePengajuanCount,
+      approvedPengajuanCount,
+      submitPengajuanCount,
+      notYetPengajuanCount,
+      hasCreateDateCount,
+      hasMrNumberCount,
+      closingDoneCount,
+      completedConstructionCount,
+      pullingCableConstructionCount,
+      inProgressConstructionCount,
+      pullingFoDoneCount,
+      coaxNoCoaxCount,
+      coaxDoneCount,
+      coaxInProgressCount,
+      coaxNotYetCount,
+      closingSapDoneCount,
+    };
+  }, [filteredProjects]);
+
   // Handler: Add / Update Project (CRUD: Create & Edit)
   const handleSaveProject = (data: ProjectData) => {
     const isEdit = projects.some((p) => p.id === data.id);
@@ -448,76 +502,108 @@ export default function App() {
               activeFilterValue={activeKpiFilter?.key || selectedStatus || (searchTerm ? 'Search' : '')}
             />
 
+            {/* Interactive Main Horizontal Tab Bar */}
+            <div className="mb-3.5 bg-white p-2 rounded-xl border border-slate-200/90 shadow-2xs overflow-x-auto custom-scrollbar">
+              <div className="flex items-center gap-1.5 min-w-max">
+                {TAB_CONFIG.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        showToast(`Beralih ke tampilan tab: ${tab.label}`);
+                      }}
+                      title={tab.description}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-slate-900 text-white shadow-xs ring-2 ring-sky-500/40'
+                          : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/90'
+                      }`}
+                    >
+                      <TabVisualIcon tabKey={tab.id} isActive={isActive} size="sm" variant="badge" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Tab Header Banner with Sheet Information & Modern Controls */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-3.5 bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center gap-3">
-                <TabVisualIcon tabKey={activeTab} isActive={true} size="lg" variant="solid" />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-bold text-slate-900 tracking-tight">{currentTabMeta.label}</h2>
-                    <span className="text-[11px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
-                      {filteredProjects.length} data
-                    </span>
+            <div className="mb-3.5 bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/90 shadow-2xs space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <TabVisualIcon tabKey={activeTab} isActive={true} size="lg" variant="solid" />
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base font-bold text-slate-900 tracking-tight">{currentTabMeta.label}</h2>
+                      <span className="text-[11px] font-mono bg-sky-50 text-sky-700 font-semibold px-2 py-0.5 rounded-md border border-sky-200">
+                        {filteredProjects.length} data proyek
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {currentTabMeta.description}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap items-center justify-end gap-2.5">
-                {/* View Mode Switcher: Tabel Standar, Tabel Compact, Card Grid */}
-                {(activeTab !== 'project-tracking-pipeline' && activeTab !== 'upload-document') || pipelineViewMode === 'sheet' ? (
-                  <div className="flex items-center bg-slate-100/90 p-1 rounded-lg border border-slate-200/90 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTableViewMode('normal');
-                        showToast('Tampilan Tabel Standar aktif');
-                      }}
-                      title="Tampilan Tabel Standar (Lebar baris normal)"
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
-                        tableViewMode === 'normal'
-                          ? 'bg-white text-sky-700 shadow-2xs font-semibold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <TableIcon className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Tabel Normal</span>
-                    </button>
+                <div className="flex flex-wrap items-center justify-end gap-2.5">
+                  {/* View Mode Switcher: Tabel Standar, Tabel Compact, Card Grid */}
+                  {(activeTab !== 'project-tracking-pipeline' && activeTab !== 'upload-document') || pipelineViewMode === 'sheet' ? (
+                    <div className="flex items-center bg-slate-100/90 p-1 rounded-lg border border-slate-200/90 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTableViewMode('normal');
+                          showToast('Tampilan Tabel Standar aktif');
+                        }}
+                        title="Tampilan Tabel Standar (Lebar baris normal)"
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
+                          tableViewMode === 'normal'
+                            ? 'bg-white text-sky-700 shadow-2xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <TableIcon className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Tabel Normal</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTableViewMode('compact');
-                        showToast('Tampilan Tabel Compact (Rapat & Padat) aktif');
-                      }}
-                      title="Tampilan Tabel Compact (Baris lebih padat, muat lebih banyak data)"
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
-                        tableViewMode === 'compact'
-                          ? 'bg-white text-sky-700 shadow-2xs font-semibold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <AlignJustify className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Tabel Compact</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTableViewMode('compact');
+                          showToast('Tampilan Tabel Compact (Rapat & Padat) aktif');
+                        }}
+                        title="Tampilan Tabel Compact (Baris lebih padat, muat lebih banyak data)"
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
+                          tableViewMode === 'compact'
+                            ? 'bg-white text-sky-700 shadow-2xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <AlignJustify className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Tabel Compact</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTableViewMode('card');
-                        showToast('Tampilan Card Grid aktif');
-                      }}
-                      title="Tampilan Kartu Kotak Grid (Card Grid)"
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
-                        tableViewMode === 'card'
-                          ? 'bg-white text-sky-700 shadow-2xs font-semibold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <Grid3X3 className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Card Grid</span>
-                    </button>
-                  </div>
-                ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTableViewMode('card');
+                          showToast('Tampilan Card Grid aktif');
+                        }}
+                        title="Tampilan Kartu Kotak Grid (Card Grid)"
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
+                          tableViewMode === 'card'
+                            ? 'bg-white text-sky-700 shadow-2xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Grid3X3 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Card Grid</span>
+                      </button>
+                    </div>
+                  ) : null}
 
                 {/* View Switcher for Tab 5 Pipeline */}
                 {activeTab === 'project-tracking-pipeline' && (
@@ -584,6 +670,97 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* Dedicated Tab Information Bar for Construction & Plan (Sheet 2) */}
+            {activeTab === 'construction-plan' && (
+              <div className="pt-3 border-t border-slate-150 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs animate-in fade-in duration-150">
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Total Target Relokasi</span>
+                  <span className="text-sm font-bold text-slate-900 font-mono">
+                    {tabStats.totalPanjangRelokasi.toLocaleString('id-ID')} m
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Survey Lapangan</span>
+                  <span className="text-xs font-semibold text-emerald-700">
+                    {tabStats.doneSurveyCount} Selesai • {filteredProjects.length - tabStats.doneSurveyCount} Belum
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">BA Survey & APD</span>
+                  <span className="text-xs font-semibold text-indigo-700">
+                    {tabStats.adaBaCount} Ada BA • {tabStats.adaApdCount} Ada APD
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Vendor Konstruksi</span>
+                  <span className="text-xs font-semibold text-slate-800">
+                    {tabStats.uniqueVendorsCount} Vendor Terdata
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Dedicated Tab Information Bar for Status Project (Sheet 3) */}
+            {activeTab === 'status-project' && (
+              <div className="pt-3 border-t border-slate-150 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs animate-in fade-in duration-150">
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Status Pengajuan</span>
+                  <span className="text-xs font-semibold text-indigo-700">
+                    {tabStats.releasePengajuanCount} Release • {tabStats.approvedPengajuanCount} Approved
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Project Create Date</span>
+                  <span className="text-xs font-semibold text-sky-700 font-mono">
+                    {tabStats.hasCreateDateCount} Proyek Terdata
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">MR Number</span>
+                  <span className="text-xs font-semibold text-emerald-700 font-mono">
+                    {tabStats.hasMrNumberCount} MR Diterbitkan
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Dokumen Closing</span>
+                  <span className="text-xs font-semibold text-slate-800">
+                    {tabStats.closingDoneCount} Dokumen Selesai / Teco
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Dedicated Tab Information Bar for Status Construction (Sheet 4) */}
+            {activeTab === 'status-construction' && (
+              <div className="pt-3 border-t border-slate-150 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs animate-in fade-in duration-150">
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Status Konstruksi Fisik</span>
+                  <span className="text-xs font-semibold text-emerald-700">
+                    {tabStats.completedConstructionCount} Completed • {tabStats.pullingCableConstructionCount} Pulling
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Pulling Cable FO</span>
+                  <span className="text-xs font-semibold text-sky-700">
+                    {tabStats.pullingFoDoneCount} Selesai (Done)
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Status Pulling COAX</span>
+                  <span className="text-xs font-semibold text-purple-700">
+                    {tabStats.coaxNoCoaxCount} No COAX • {tabStats.coaxDoneCount} Done
+                  </span>
+                </div>
+                <div className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Closing SAP</span>
+                  <span className="text-xs font-semibold text-slate-800 font-mono">
+                    {tabStats.closingSapDoneCount} Selesai Closing
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
             {/* Filter and Search Bar (Tabs 1-5) */}
             {activeTab !== 'upload-document' && (

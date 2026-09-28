@@ -238,16 +238,12 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Status Pengajuan MR</span>
-                  <span className="font-medium text-slate-800">{project.statusPengajuanMr || 'N/A'}</span>
+                  <span className="text-slate-400 block text-[11px]">Project Create Date</span>
+                  <span className="font-medium text-slate-800 font-mono">{project.projectCreateDate || '-'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Status Pengajuan PO</span>
-                  <span className="font-medium text-slate-800">{project.statusPengajuanPo || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">MR / PO Number</span>
-                  <span className="font-mono text-slate-800">MR: {project.mrNumber || '-'} | PO: {project.poNumber || '-'}</span>
+                  <span className="text-slate-400 block text-[11px]">MR Number</span>
+                  <span className="font-mono text-slate-800">{project.mrNumber || '-'}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[11px]">Pengambilan Material</span>

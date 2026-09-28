@@ -187,9 +187,9 @@ export const ProjectCardGrid: React.FC<ProjectCardGridProps> = ({
 
               {activeTab === 'status-project' && (
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">MR / PO:</span>
+                  <span className="text-slate-500">Create Date / MR:</span>
                   <span className="font-mono text-indigo-700 font-semibold">
-                    MR: {proj.statusPengajuanMr} | PO: {proj.statusPengajuanPo}
+                    {proj.projectCreateDate || (proj.mrNumber ? `MR: ${proj.mrNumber}` : '-')}
                   </span>
                 </div>
               )}

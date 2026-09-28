@@ -17,7 +17,8 @@ import {
   Building,
   AlertCircle,
   Plus,
-  RotateCcw
+  RotateCcw,
+  Calendar
 } from 'lucide-react';
 import { ProjectData, ColumnDefinition, TabKey, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
 import { TabVisualIcon } from './TabVisualIcon';
@@ -41,6 +42,7 @@ import {
   STATUS_CO_OPTIONS,
   LAPORAN_OPNAME_OPTIONS,
   CLOSING_SAP_OPTIONS,
+  NAMA_VENDOR_OPTIONS,
 } from '../data/dropdownOptions';
 
 interface TableViewProps {
@@ -196,6 +198,7 @@ export const TableView: React.FC<TableViewProps> = ({
       case 'No Need PO':
         return 'text-rose-700 bg-rose-50 border border-rose-200/60 font-medium';
       case 'Project Not Started':
+      case 'No COAX':
         return 'text-slate-600 bg-slate-100 border border-slate-200 font-medium';
       default:
         return 'text-slate-700 bg-slate-50 border border-slate-200/60';
@@ -861,6 +864,52 @@ export const TableView: React.FC<TableViewProps> = ({
                                 </option>
                               ))}
                             </select>
+                          ) : col.key === 'namaVendor' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              <option value="">-- Pilih Vendor --</option>
+                              {NAMA_VENDOR_OPTIONS.map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                              {cellTempText && !(NAMA_VENDOR_OPTIONS as readonly string[]).includes(cellTempText) && (
+                                <option value={cellTempText}>{cellTempText}</option>
+                              )}
+                            </select>
+                          ) : col.key === 'projectCreateDate' ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="date"
+                                autoFocus
+                                value={cellTempText}
+                                onChange={(e) => {
+                                  setCellTempText(e.target.value);
+                                  if (onQuickUpdateCell) {
+                                    onQuickUpdateCell(row.id, col.key, e.target.value);
+                                  }
+                                }}
+                                onBlur={() => commitCellEdit(row.id, col.key)}
+                                className="w-full px-1.5 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-mono cursor-pointer"
+                              />
+                              <button
+                                onClick={() => commitCellEdit(row.id, col.key)}
+                                className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           ) : (
                             <div className="flex items-center gap-1">
                               <input
@@ -898,6 +947,18 @@ export const TableView: React.FC<TableViewProps> = ({
                           >
                             {valueStr}
                           </span>
+                        ) : col.key === 'projectCreateDate' ? (
+                          valueStr ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium text-sky-800 bg-sky-50/80 border border-sky-200">
+                              <Calendar className="w-3 h-3 text-sky-600 shrink-0" />
+                              <span>{valueStr}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 italic text-[11px] inline-flex items-center justify-center gap-1">
+                              <Calendar className="w-3 h-3 text-slate-300 shrink-0" />
+                              <span>Pilih tanggal</span>
+                            </span>
+                          )
                         ) : (col.key === 'pullingCableFoProgress' || col.key === 'pullingCableCoaxProgress') && valueStr ? (
                           <div className="flex items-center justify-center gap-1.5">
                             <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden">

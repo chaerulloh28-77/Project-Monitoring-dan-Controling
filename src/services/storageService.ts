@@ -100,9 +100,15 @@ export const storageService = {
             p.statusConstruction
           );
 
+          let vendor = (p.namaVendor || '').trim().toUpperCase();
+          if (vendor.includes('MENTARI (RESIGN)') || vendor.includes('MENTARI ( RESIGN )')) {
+            vendor = 'PT.MENTARI';
+          }
+
           return {
             ...p,
             no: idx + 1,
+            namaVendor: vendor,
             pmoId: cleanPmoId || p.pmoId,
             projectCategory: cat || 'GOV IPPJU',
             picSectionHead: pic,
@@ -201,12 +207,8 @@ export const storageService = {
       'Estimasi Pemutusan',
       'Tanggal Pemutusan',
       'Status Pengajuan Project',
-      'Tanggal Pengajuan MR',
-      'Tanggal Pengajuan PO',
-      'Status Pengajuan MR',
-      'Status Pengajuan PO',
+      'Project Create Date',
       'MR Number',
-      'PO Number',
       'Plan Pengambilan Material',
       'Status Material Location',
       'Pengajuan Project Remarks',
@@ -274,12 +276,8 @@ export const storageService = {
       escapeCsv(p.estimasiPemutusan),
       escapeCsv(p.tanggalPemutusan),
       escapeCsv(p.statusPengajuanProject),
-      escapeCsv(p.tanggalPengajuanMr),
-      escapeCsv(p.tanggalPengajuanPo),
-      escapeCsv(p.statusPengajuanMr),
-      escapeCsv(p.statusPengajuanPo),
+      escapeCsv(p.projectCreateDate),
       escapeCsv(p.mrNumber),
-      escapeCsv(p.poNumber),
       escapeCsv(p.planPengambilanMaterial),
       escapeCsv(p.statusMaterialLocation),
       escapeCsv(p.pengajuanProjectRemarks),

@@ -42,12 +42,13 @@ export interface ProjectData {
 
   // Tab 3: Status Project (from Image 3)
   statusPengajuanProject: string; // "Status Pengajuan Project", e.g. NOSA, Project Cancel, Submitted
-  tanggalPengajuanMr: string; // "Tanggal Pengajuan MR"
-  tanggalPengajuanPo: string; // "Tanggal Pengajuan PO"
-  statusPengajuanMr: string; // "Status Pengajuan MR", e.g. N/A, Released, No Need MR, In Progress
-  statusPengajuanPo: string; // "Status Pengajuan PO", e.g. N/A, Released, No Need PO
-  mrNumber: string; // "MR Number", e.g. 99434
-  poNumber: string; // "PO Number"
+  projectCreateDate?: string; // "Project Create Date", e.g. 2026-03-15
+  mrNumber?: string; // "MR Number", e.g. 99434
+  tanggalPengajuanMr?: string; // "Tanggal Pengajuan MR" (Legacy)
+  tanggalPengajuanPo?: string; // "Tanggal Pengajuan PO" (Legacy)
+  statusPengajuanMr?: string; // "Status Pengajuan MR" (Legacy)
+  statusPengajuanPo?: string; // "Status Pengajuan PO" (Legacy)
+  poNumber?: string; // "PO Number" (Legacy)
   planPengambilanMaterial: string; // "Plan Pengambilan Material"
   statusMaterialLocation: string; // "Status Material Location"
   pengajuanProjectRemarks: string; // "Pengajuan Project Remarks"
