@@ -212,19 +212,25 @@ export function calculatePullingCoaxPercentage(
   totalMeters?: number | string,
   statusConstruction?: string
 ): string {
+  // Option 'No COAX' is explicitly set to 0% as requested
+  const sCoax = (statusCoax || '').trim();
+  if (sCoax.toLowerCase() === 'no coax') return '0%';
+
   if (statusConstruction === 'Completed') return '100%';
   if (statusConstruction === 'Project Cancel' || statusConstruction === 'Cancelled') return '0%';
 
   const total = Number(totalMeters || 0);
   const done = Number(doneMeters || 0);
-  if (total > 0) {
+  if (total > 0 && done > 0) {
     const pct = Math.min(100, Math.max(0, Math.round((done / total) * 100)));
     return `${pct}%`;
   }
 
-  if (statusCoax === 'No COAX') return 'N/A';
-  if (statusCoax === 'Done') return '100%';
-  if (statusCoax === 'In Progress') return '50%';
+  // Automatic calculation based on status option:
+  // 'Done' -> 100%, 'In Progress' -> 50%, 'Not Yet' -> 0%
+  const normalized = sCoax.toLowerCase();
+  if (normalized === 'done') return '100%';
+  if (normalized === 'in progress') return '50%';
   return '0%';
 }
 

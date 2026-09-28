@@ -93,12 +93,15 @@ export const storageService = {
             p.statusConstruction
           );
 
-          const coaxProgress = p.pullingCableCoaxProgress || calculatePullingCoaxPercentage(
-            p.statusPullingCableCoax || 'Not Yet',
-            p.pullingPanjangSelesai,
-            p.pullingPanjangTotal || p.panjangRelokasi,
-            p.statusConstruction
-          );
+          let coaxProgress = p.pullingCableCoaxProgress;
+          if (!coaxProgress || coaxProgress === 'N/A' || p.statusPullingCableCoax === 'No COAX') {
+            coaxProgress = calculatePullingCoaxPercentage(
+              p.statusPullingCableCoax || 'Not Yet',
+              p.pullingCoaxPanjangSelesai || p.pullingPanjangSelesai,
+              p.pullingCoaxPanjangTotal || p.pullingPanjangTotal || p.panjangRelokasi,
+              p.statusConstruction
+            );
+          }
 
           let vendor = (p.namaVendor || '').trim().toUpperCase();
           if (vendor.includes('MENTARI (RESIGN)') || vendor.includes('MENTARI ( RESIGN )')) {
