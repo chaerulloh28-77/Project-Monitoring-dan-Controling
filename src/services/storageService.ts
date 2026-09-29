@@ -104,7 +104,6 @@ function normalizeProject(p: ProjectData, idx: number): ProjectData {
 export const storageService = {
   /**
    * Load all projects from Cloud Firestore.
-   * If Firestore collection is empty on first boot, seeds the 387 initial projects into Firestore.
    */
   async loadProjects(): Promise<ProjectData[]> {
     try {
@@ -112,7 +111,7 @@ export const storageService = {
       const snapshot = await getDocs(colRef);
 
       if (snapshot.empty) {
-        console.log('Firestore collection is empty. Seeding initial 387 projects...');
+        console.log('Firestore collection is empty. Seeding initial 188 projects...');
         const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
         await this.saveProjects(initial);
         return initial.map(normalizeProject);
@@ -246,7 +245,7 @@ export const storageService = {
   },
 
   /**
-   * Restore initial 387 projects into Cloud Firestore
+   * Restore initial 188 projects into Cloud Firestore
    */
   async restoreDefaultProjects(): Promise<ProjectData[]> {
     try {

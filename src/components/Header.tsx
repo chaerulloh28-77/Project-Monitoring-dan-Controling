@@ -160,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
             {totalProjects === 0 && onRestoreDefaults && (
               <button
                 onClick={onRestoreDefaults}
-                title="Muat ulang 387 data project awal"
+                title="Muat ulang data project awal"
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-sky-300 bg-sky-950/40 border border-sky-800/60 rounded-lg hover:bg-sky-900/60 hover:text-white transition-all cursor-pointer shadow-2xs"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-sky-400" />

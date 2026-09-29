@@ -58,7 +58,7 @@ export default function App() {
   // Current user authentication state
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => authService.getCurrentUser());
 
-  // Master projects dataset (387 projects)
+  // Master projects dataset (188 projects)
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>('project-list');
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
@@ -341,14 +341,14 @@ export default function App() {
     }
   };
 
-  // Handler: Muat Ulang 387 Data Project Awal ke Cloud Firestore
+  // Handler: Muat Ulang 188 Data Project Awal ke Cloud Firestore
   const handleRestoreDefaultProjects = async () => {
-    showToast('Memuat ulang 387 data project awal ke Firestore...');
+    showToast('Memuat ulang 188 data project awal ke Firestore...');
     try {
       const restored = await storageService.restoreDefaultProjects();
       setProjects(restored);
       setLastSavedTime(new Date().toISOString());
-      showToast('387 data project awal berhasil dimuat ulang ke Firestore.');
+      showToast('188 data project awal berhasil dimuat ulang ke Firestore.');
     } catch (err) {
       console.error('Error restoring defaults to Firestore:', err);
       showToast('Gagal memuat ulang data ke Firestore.');
@@ -709,11 +709,11 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleRestoreDefaultProjects}
-                    title="Muat Ulang 387 Data Project Awal"
+                    title="Muat Ulang 188 Data Project Awal"
                     className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100/80 border border-sky-200/90 rounded-lg transition-all shadow-2xs active:scale-[0.98] cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Muat Ulang 387 Data Awal</span>
+                    <span>Muat Ulang Data Awal</span>
                   </button>
                 )}
 

@@ -41,7 +41,7 @@ export const ClearAllConfirmModal: React.FC<ClearAllConfirmModalProps> = ({
                   Data pada semua sheet (Project List, Construction & Plan, Status Project, Status Construction, dan Tracking Pipeline) akan dikosongkan.
                 </p>
                 <p className="text-[11px] text-rose-700 font-medium mt-1">
-                  Catatan: Anda tetap dapat memuat ulang 387 data default kapan saja melalui tombol &quot;Muat Ulang Data Awal&quot;.
+                  Catatan: Anda tetap dapat memuat ulang 188 data default kapan saja melalui tombol &quot;Muat Ulang Data Awal&quot;.
                 </p>
               </div>
             </div>
