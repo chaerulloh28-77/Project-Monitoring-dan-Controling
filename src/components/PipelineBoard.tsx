@@ -56,20 +56,27 @@ export const PipelineBoard: React.FC<PipelineBoardProps> = ({
       borderClass: 'border-amber-300',
       badgeBg: 'bg-amber-100 text-amber-800',
       filterFn: (p) => 
+        p.projectStatus === 'Review Dinas' ||
         p.projectStatus === 'Masih Review Dinas' || 
+        (Boolean(p.projectStatus) && p.projectStatus.toLowerCase().includes('review')) ||
         p.statusSurvey === 'Belum' || 
         p.statusAudit === 'Belum di Audit',
     },
     {
       id: 'stage-procurement',
       title: '2. Procurement & PO',
-      shortDesc: 'Pengajuan MR / PO Released',
+      shortDesc: 'Pengajuan MR / PO Approved & Released',
       icon: FileCheck2,
       colorClass: 'text-sky-700',
       borderClass: 'border-sky-300',
       badgeBg: 'bg-sky-100 text-sky-800',
       filterFn: (p) => 
-        (p.statusPengajuanMr === 'Released' || p.statusPengajuanPo === 'Released') && 
+        (p.statusPengajuanProject === 'Approved' ||
+         p.statusPengajuanProject === 'Release' ||
+         p.statusPengajuanPo === 'Approved' ||
+         p.statusPengajuanPo === 'Released' ||
+         p.statusPengajuanMr === 'Approved' ||
+         p.statusPengajuanMr === 'Released') && 
         p.statusConstruction === 'Project Not Started' &&
         p.projectStatus !== 'Cancelled',
     },
@@ -141,7 +148,15 @@ export const PipelineBoard: React.FC<PipelineBoardProps> = ({
     if (project.galianSipilProgress && project.galianSipilProgress !== '0%') {
       return 'stage-civil';
     }
-    if (project.statusPengajuanMr === 'Released' || project.statusPengajuanPo === 'Released' || project.statusPengajuanProject === 'Release' || project.statusPengajuanProject === 'Approved') {
+    if (
+      project.statusPengajuanMr === 'Released' || 
+      project.statusPengajuanPo === 'Released' || 
+      project.statusPengajuanMr === 'Approved' || 
+      project.statusPengajuanPo === 'Approved' || 
+      project.statusPengajuanProject === 'Release' || 
+      project.statusPengajuanProject === 'Released' || 
+      project.statusPengajuanProject === 'Approved'
+    ) {
       return 'stage-procurement';
     }
     return 'stage-review';

@@ -58,7 +58,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     return a.localeCompare(b);
   });
   const uniqueCategories = Array.from(new Set(allProjects.map((p) => p.projectCategory).filter(Boolean))).sort();
-  const uniqueStatuses = Array.from(new Set(allProjects.map((p) => p.projectStatus).filter(Boolean))).sort();
+  const defaultStatuses = ['In Progress', 'Project Not Started', 'Review Dinas', 'Masih Review Dinas', 'MR/PO Approved', 'Cancelled', 'Completed'];
+  const uniqueStatuses = Array.from(new Set([...defaultStatuses, ...allProjects.map((p) => p.projectStatus).filter(Boolean)]));
   
   // Standardized options for Category, Zona, Quarter & PIC as requested
   const categoryOptions = ['GOV IPPJU', 'GOV APJATEL', 'GOV SJUT'];

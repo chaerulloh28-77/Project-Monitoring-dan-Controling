@@ -11,20 +11,21 @@ import {
 import { db, handleFirestoreError, OperationType } from './firebase';
 import { ProjectData } from '../types/project';
 import { INITIAL_PROJECTS } from '../data/initialData';
-import { calculatePullingFoPercentage, calculatePullingCoaxPercentage } from '../data/dropdownOptions';
+import { calculatePullingFoPercentage, calculatePullingCoaxPercentage, calculatePullingPercentage } from '../data/dropdownOptions';
 import { securityGuard } from './securityGuard';
 import * as XLSX from 'xlsx';
 import { 
   PROJECT_LIST_COLUMNS, 
   CONSTRUCTION_PLAN_COLUMNS, 
   STATUS_PROJECT_COLUMNS, 
-  STATUS_CONSTRUCTION_COLUMNS 
+  STATUS_CONSTRUCTION_COLUMNS,
+  PROJECT_TRACKING_PIPELINE_COLUMNS 
 } from '../data/tabColumns';
 import { 
-  JaboExportScope, 
-  filterProjectsByScope, 
-  getScopeInfo 
-} from '../utils/jaboScope';
+  PicExportScope, 
+  filterProjectsByPic, 
+  getPicScopeInfo 
+} from '../utils/picScope';
 
 const COLLECTION_NAME = 'projects';
 
@@ -68,20 +69,38 @@ function normalizeProject(p: ProjectData, idx: number): ProjectData {
 
   const foProgress = p.pullingCableFoProgress || calculatePullingFoPercentage(
     p.statusPullingCableFo || 'Not Yet',
-    p.pullingPanjangSelesai,
-    p.pullingPanjangTotal || p.panjangRelokasi,
+    p.pullingFoPanjangSelesai || p.pullingPanjangSelesai,
+    p.pullingFoPanjangTotal || p.pullingPanjangTotal || p.panjangRelokasi,
     p.statusConstruction
   );
 
+  const coaxLength = Number(p.panjangRelokasiCoax !== undefined ? p.panjangRelokasiCoax : (p.pullingCoaxPanjangTotal || 0));
+  const coaxTotal = Number(p.pullingCoaxPanjangTotal !== undefined ? p.pullingCoaxPanjangTotal : coaxLength);
+  const coaxDone = Number(p.pullingCoaxPanjangSelesai || 0);
+
+  const isCoaxNotUsed = !p.statusPullingCableCoax || p.statusPullingCableCoax === 'No COAX' || p.statusPullingCableCoax === 'N/A';
   let coaxProgress = p.pullingCableCoaxProgress;
-  if (!coaxProgress || coaxProgress === 'N/A' || p.statusPullingCableCoax === 'No COAX') {
+
+  if (isCoaxNotUsed && (!coaxProgress || coaxProgress === '0%')) {
+    coaxProgress = p.statusPullingCableCoax === 'No COAX' ? 'No COAX' : 'N/A';
+  } else if (!coaxProgress || coaxProgress === 'N/A' || coaxProgress === 'No COAX') {
     coaxProgress = calculatePullingCoaxPercentage(
-      p.statusPullingCableCoax || 'Not Yet',
-      p.pullingCoaxPanjangSelesai || p.pullingPanjangSelesai,
-      p.pullingCoaxPanjangTotal || p.pullingPanjangTotal || p.panjangRelokasi,
+      p.statusPullingCableCoax || 'N/A',
+      coaxDone,
+      coaxTotal,
       p.statusConstruction
     );
   }
+
+  const overallPulling = p.pullingCableProgress || (
+    isCoaxNotUsed
+      ? (foProgress || '0%')
+      : calculatePullingPercentage(
+          p.statusPullingCableFo || 'Not Yet',
+          p.statusPullingCableCoax || 'N/A',
+          p.statusConstruction
+        )
+  );
 
   let vendor = (p.namaVendor || '').trim().toUpperCase();
   if (vendor.includes('MENTARI (RESIGN)') || vendor.includes('MENTARI ( RESIGN )')) {
@@ -96,8 +115,11 @@ function normalizeProject(p: ProjectData, idx: number): ProjectData {
     projectCategory: cat || 'GOV IPPJU',
     picSectionHead: pic,
     zona: zona || 'Jabo 1',
+    panjangRelokasiCoax: coaxLength,
+    pullingCoaxPanjangTotal: coaxTotal,
     pullingCableFoProgress: foProgress,
     pullingCableCoaxProgress: coaxProgress,
+    pullingCableProgress: overallPulling,
   };
 }
 
@@ -260,15 +282,15 @@ export const storageService = {
     }
   },
 
-  // Export current data to Excel-ready CSV (with optional Jabo Scope filter)
-  exportToCsv(projects: ProjectData[], zonaFilter?: JaboExportScope | string): void {
-    if (!projects || projects.length === 0) return;
+  // Export current data to Excel-ready CSV (with optional PIC / Section Head filter)
+  exportToCsv(projects: ProjectData[], picFilter?: PicExportScope | string): { success: boolean; count: number; filename: string; label: string } {
+    if (!projects || projects.length === 0) return { success: false, count: 0, filename: '', label: '' };
 
-    const scope: JaboExportScope = (zonaFilter as JaboExportScope) || 'ALL';
-    const targetProjects = filterProjectsByScope(projects, scope);
-    const scopeInfo = getScopeInfo(scope);
+    const scope: PicExportScope = (picFilter as PicExportScope) || 'ALL';
+    const targetProjects = filterProjectsByPic(projects, scope);
+    const scopeInfo = getPicScopeInfo(scope);
 
-    if (targetProjects.length === 0) return;
+    if (targetProjects.length === 0) return { success: false, count: 0, filename: '', label: scopeInfo.label };
 
     const headers = [
       'No',
@@ -285,7 +307,11 @@ export const storageService = {
       'Date Surat Perintah Relokasi',
       'Bulan',
       'Tahun',
-      'Panjang Relokasi (m)',
+      'Panjang Relokasi FO (m)',
+      'Panjang Relokasi COAX (m)',
+      'Target Meter Galian (m)',
+      'Meter Galian Selesai (m)',
+      'Galian Sipil Progress',
       'APD Relokasi',
       'KMZ Relokasi',
       'Status Audit',
@@ -317,13 +343,18 @@ export const storageService = {
       'Status Labor',
       'Status Material',
       'Status Pulling Cable FO',
+      'Meter Selesai FO (m)',
+      'Target Meter FO (m)',
+      'Pulling FO Progress',
       'Status Pulling Cable Coax',
+      'Meter Selesai COAX (m)',
+      'Target Meter COAX (m)',
+      'Pulling COAX Progress',
       'Status CO',
       'Status CO Coax',
       'Laporan Opname',
       'Closing SAP',
       'Kebutuhan Material PO SAP',
-      'Galian Sipil Progress',
       'Galian Akses Progress',
       'Galian Crossing Progress',
       'Install HH Progress',
@@ -355,6 +386,10 @@ export const storageService = {
       escapeCsv(p.bulan),
       escapeCsv(p.tahun),
       escapeCsv(p.panjangRelokasi),
+      escapeCsv(p.panjangRelokasiCoax || 0),
+      escapeCsv(p.galianPanjangTotal || p.panjangRelokasi || 0),
+      escapeCsv(p.galianPanjangSelesai || 0),
+      escapeCsv(p.galianSipilProgress || '0%'),
       escapeCsv(p.apdRelokasi),
       escapeCsv(p.kmzRelokasi),
       escapeCsv(p.statusAudit),
@@ -386,13 +421,18 @@ export const storageService = {
       escapeCsv(p.statusLabor),
       escapeCsv(p.statusMaterial),
       escapeCsv(p.statusPullingCableFo),
+      escapeCsv(p.pullingFoPanjangSelesai || 0),
+      escapeCsv(p.pullingFoPanjangTotal || p.panjangRelokasi || 0),
+      escapeCsv(p.pullingCableFoProgress || '0%'),
       escapeCsv(p.statusPullingCableCoax),
+      escapeCsv(p.pullingCoaxPanjangSelesai || 0),
+      escapeCsv(p.pullingCoaxPanjangTotal || p.panjangRelokasiCoax || 0),
+      escapeCsv(p.pullingCableCoaxProgress || '0%'),
       escapeCsv(p.statusCo),
       escapeCsv(p.statusCoCoax),
       escapeCsv(p.laporanOpname),
       escapeCsv(p.closingSap),
       escapeCsv(p.kebutuhanMaterialPoSap),
-      escapeCsv(p.galianSipilProgress),
       escapeCsv(p.galianAksesProgress),
       escapeCsv(p.galianCrossingProgress),
       escapeCsv(p.installHhProgress),
@@ -407,15 +447,23 @@ export const storageService = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Project_Monitoring_Report_${scopeInfo.filenameKey}_${new Date().toISOString().slice(0, 10)}.csv`);
+    const filename = `Project_Monitoring_Report_${scopeInfo.filenameKey}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    return {
+      success: true,
+      count: targetProjects.length,
+      filename,
+      label: scopeInfo.label,
+    };
   },
 
-  // Export current data to real Multi-Sheet Excel Workbook (.xlsx) with 4 synchronized sheets
-  exportToMultiSheetExcel(projects: ProjectData[], zonaFilter?: JaboExportScope | string): {
+  // Export current data to real Multi-Sheet Excel Workbook (.xlsx) with synchronized sheets
+  exportToMultiSheetExcel(projects: ProjectData[], picFilter?: PicExportScope | string): {
     success: boolean;
     count: number;
     filename: string;
@@ -425,9 +473,9 @@ export const storageService = {
       return { success: false, count: 0, filename: '', label: '' };
     }
 
-    const scope: JaboExportScope = (zonaFilter as JaboExportScope) || 'ALL';
-    const targetProjects = filterProjectsByScope(projects, scope);
-    const scopeInfo = getScopeInfo(scope);
+    const scope: PicExportScope = (picFilter as PicExportScope) || 'ALL';
+    const targetProjects = filterProjectsByPic(projects, scope);
+    const scopeInfo = getPicScopeInfo(scope);
 
     if (targetProjects.length === 0) {
       return { success: false, count: 0, filename: '', label: scopeInfo.label };
@@ -435,74 +483,57 @@ export const storageService = {
 
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1: Project List
-    const ws1Headers = PROJECT_LIST_COLUMNS.map((col) => col.label);
-    const ws1Rows = targetProjects.map((p, idx) =>
-      PROJECT_LIST_COLUMNS.map((col) => {
-        if (col.key === 'no') return idx + 1;
-        const val = p[col.key];
-        return val !== undefined && val !== null ? val : '';
-      })
-    );
-    const ws1 = XLSX.utils.aoa_to_sheet([ws1Headers, ...ws1Rows]);
-    ws1['!cols'] = PROJECT_LIST_COLUMNS.map((col) => ({
-      wch: Math.max(col.label.length + 3, 12),
-    }));
-    XLSX.utils.book_append_sheet(wb, ws1, 'Project List');
+    // Helper to build worksheet from column definition
+    const buildSheet = (columns: { key: keyof ProjectData | 'no'; label: string }[], dataList: ProjectData[]) => {
+      const headers = columns.map((col) => col.label);
+      const rows = dataList.map((p, idx) =>
+        columns.map((col) => {
+          if (col.key === 'no') return idx + 1;
+          const val = p[col.key as keyof ProjectData];
+          return val !== undefined && val !== null ? val : '';
+        })
+      );
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      ws['!cols'] = columns.map((col) => ({
+        wch: Math.max(col.label.length + 3, 14),
+      }));
+      return ws;
+    };
 
-    // Sheet 2: Construction & Plan
-    const ws2Headers = CONSTRUCTION_PLAN_COLUMNS.map((col) => col.label);
-    const ws2Rows = targetProjects.map((p, idx) =>
-      CONSTRUCTION_PLAN_COLUMNS.map((col) => {
-        if (col.key === 'no') return idx + 1;
-        const val = p[col.key];
-        return val !== undefined && val !== null ? val : '';
-      })
-    );
-    const ws2 = XLSX.utils.aoa_to_sheet([ws2Headers, ...ws2Rows]);
-    ws2['!cols'] = CONSTRUCTION_PLAN_COLUMNS.map((col) => ({
-      wch: Math.max(col.label.length + 3, 14),
-    }));
-    XLSX.utils.book_append_sheet(wb, ws2, 'Construction & Plan');
+    // Sheet 1: Project List
+    XLSX.utils.book_append_sheet(wb, buildSheet(PROJECT_LIST_COLUMNS, targetProjects), 'Project List');
+
+    // Sheet 2: Construction & Plan (includes Galian Sipil & Relokasi Meter)
+    XLSX.utils.book_append_sheet(wb, buildSheet(CONSTRUCTION_PLAN_COLUMNS, targetProjects), 'Construction & Plan');
 
     // Sheet 3: Status Project
-    const ws3Headers = STATUS_PROJECT_COLUMNS.map((col) => col.label);
-    const ws3Rows = targetProjects.map((p, idx) =>
-      STATUS_PROJECT_COLUMNS.map((col) => {
-        if (col.key === 'no') return idx + 1;
-        const val = p[col.key];
-        return val !== undefined && val !== null ? val : '';
-      })
-    );
-    const ws3 = XLSX.utils.aoa_to_sheet([ws3Headers, ...ws3Rows]);
-    ws3['!cols'] = STATUS_PROJECT_COLUMNS.map((col) => ({
-      wch: Math.max(col.label.length + 3, 14),
-    }));
-    XLSX.utils.book_append_sheet(wb, ws3, 'Status Project');
+    XLSX.utils.book_append_sheet(wb, buildSheet(STATUS_PROJECT_COLUMNS, targetProjects), 'Status Project');
 
     // Sheet 4: Status Construction
-    const ws4Headers = STATUS_CONSTRUCTION_COLUMNS.map((col) => col.label);
-    const ws4Rows = targetProjects.map((p, idx) =>
-      STATUS_CONSTRUCTION_COLUMNS.map((col) => {
-        if (col.key === 'no') return idx + 1;
-        const val = p[col.key];
-        return val !== undefined && val !== null ? val : '';
-      })
-    );
-    const ws4 = XLSX.utils.aoa_to_sheet([ws4Headers, ...ws4Rows]);
-    ws4['!cols'] = STATUS_CONSTRUCTION_COLUMNS.map((col) => ({
-      wch: Math.max(col.label.length + 3, 14),
-    }));
-    XLSX.utils.book_append_sheet(wb, ws4, 'Status Construction');
+    XLSX.utils.book_append_sheet(wb, buildSheet(STATUS_CONSTRUCTION_COLUMNS, targetProjects), 'Status Construction');
 
-    const filename = `Project_Monitoring_Report_${scopeInfo.filenameKey}_4_Sheets_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    // Sheet 5: Project Tracking Pipeline
+    XLSX.utils.book_append_sheet(wb, buildSheet(PROJECT_TRACKING_PIPELINE_COLUMNS, targetProjects), 'Pipeline Tracking');
+
+    // If exporting ALL, also generate dedicated sheets per PIC (Mega, Aris, Chaerul, Daud)
+    if (scope === 'ALL') {
+      const pics: ('Mega' | 'Aris' | 'Chaerul' | 'Daud')[] = ['Mega', 'Aris', 'Chaerul', 'Daud'];
+      pics.forEach((pic) => {
+        const picProjects = filterProjectsByPic(projects, pic);
+        if (picProjects.length > 0) {
+          XLSX.utils.book_append_sheet(wb, buildSheet(PROJECT_TRACKING_PIPELINE_COLUMNS, picProjects), `PIC ${pic}`);
+        }
+      });
+    }
+
+    const filename = `Project_Monitoring_Report_${scopeInfo.filenameKey}_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     wb.Props = {
-      Title: `Project Monitoring dan Controling Report - ${scopeInfo.label}`,
-      Subject: `Multi-Sheet Project Management Master Report (${scopeInfo.tag} - ${targetProjects.length} Proyek)`,
+      Title: `Project Monitoring Report - ${scopeInfo.label}`,
+      Subject: `Multi-Sheet Project Management Master Report (${scopeInfo.label} - ${targetProjects.length} Proyek)`,
       Author: 'PAUL',
       Company: 'PMO System © PAUL',
-      Comments: scopeInfo.description,
+      Comments: scopeInfo.sublabel,
       CreatedDate: new Date(),
     };
 

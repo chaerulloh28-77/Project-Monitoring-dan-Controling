@@ -57,12 +57,32 @@ export const SPH_BOQ_OPTIONS = [
   'Release',
 ] as const;
 
-// Status Pengajuan Project: Not Yet, Submit, Approved, Release
-export const STATUS_PENGAJUAN_PROJECT_OPTIONS = [
+// Status Project Master Options (including Review Dinas & Masih Review Dinas)
+export const PROJECT_STATUS_OPTIONS = [
+  'In Progress',
+  'Project Not Started',
+  'Review Dinas',
+  'Masih Review Dinas',
+  'Cancelled',
+  'Completed',
+] as const;
+
+// Status Pengajuan PO / MR: Not Yet, Submit, Approved, Release, Released, N/A
+export const STATUS_PENGAJUAN_PO_OPTIONS = [
   'Not Yet',
   'Submit',
   'Approved',
   'Release',
+  'Released',
+  'N/A',
+] as const;
+
+// Status Pengajuan Project: Not Yet, Submit, Release, Project Cancel
+export const STATUS_PENGAJUAN_PROJECT_OPTIONS = [
+  'Not Yet',
+  'Submit',
+  'Release',
+  'Project Cancel',
 ] as const;
 
 // Plan Pengambilan Material: Not Yet, Warehouse LN, Warehouse CKT
@@ -105,16 +125,18 @@ export const STATUS_MATERIAL_OPTIONS = [
   'Release',
 ] as const;
 
-// Status Pulling Cable FO: Not Yet, In Progress, Done
+// Status Pulling Cable FO: Not Started, Not Yet, In Progress, Done
 export const STATUS_PULLING_CABLE_FO_OPTIONS = [
+  'Not Started',
   'Not Yet',
   'In Progress',
   'Done',
 ] as const;
 
-// Status Pulling Cable COAX: No COAX, Not Yet, In Progress, Done
+// Status Pulling Cable COAX: No COAX, N/A, Not Yet, In Progress, Done
 export const STATUS_PULLING_CABLE_COAX_OPTIONS = [
   'No COAX',
+  'N/A',
   'Not Yet',
   'In Progress',
   'Done',
@@ -145,8 +167,8 @@ export const CLOSING_SAP_OPTIONS = [
 export const HH_TYPE_OPTIONS = ['HH', 'HB', 'MH'] as const;
 export const HH_SIZE_OPTIONS = ['80x80', '90x90', '100x100', '110x110', '120x120'] as const;
 
-// Pole (Ea): Tiang 8, Tiang 9
-export const POLE_OPTIONS = ['Tiang 8', 'Tiang 9'] as const;
+// Pole (Ea): Tiang 7, Tiang 8, Tiang 9
+export const POLE_OPTIONS = ['Tiang 7', 'Tiang 8', 'Tiang 9'] as const;
 
 // Galvanis (meter): 2", 4", 6"
 export const GALVANIS_OPTIONS = ['2"', '4"', '6"'] as const;
@@ -190,15 +212,18 @@ export function calculatePullingFoPercentage(
   if (statusConstruction === 'Completed') return '100%';
   if (statusConstruction === 'Project Cancel' || statusConstruction === 'Cancelled') return '0%';
 
+  const sFo = (statusFo || '').trim();
+  if (sFo === 'Done') return '100%';
+  if (sFo === 'Not Started' || sFo === 'Not Yet') return '0%';
+
   const total = Number(totalMeters || 0);
   const done = Number(doneMeters || 0);
-  if (total > 0) {
+  if (total > 0 && done > 0) {
     const pct = Math.min(100, Math.max(0, Math.round((done / total) * 100)));
     return `${pct}%`;
   }
 
-  if (statusFo === 'Done') return '100%';
-  if (statusFo === 'In Progress') return '50%';
+  if (sFo === 'In Progress') return '50%';
   return '0%';
 }
 
@@ -212,12 +237,15 @@ export function calculatePullingCoaxPercentage(
   totalMeters?: number | string,
   statusConstruction?: string
 ): string {
-  // Option 'No COAX' is explicitly set to 0% as requested
-  const sCoax = (statusCoax || '').trim();
-  if (sCoax.toLowerCase() === 'no coax') return '0%';
+  // Option 'No COAX' or 'N/A' is explicitly set to 0% (not applicable)
+  const sCoax = (statusCoax || '').trim().toLowerCase();
+  if (sCoax === 'no coax' || sCoax === 'n/a' || !sCoax) return '0%';
 
   if (statusConstruction === 'Completed') return '100%';
   if (statusConstruction === 'Project Cancel' || statusConstruction === 'Cancelled') return '0%';
+
+  if (sCoax === 'done') return '100%';
+  if (sCoax === 'not started' || sCoax === 'not yet') return '0%';
 
   const total = Number(totalMeters || 0);
   const done = Number(doneMeters || 0);
@@ -226,11 +254,7 @@ export function calculatePullingCoaxPercentage(
     return `${pct}%`;
   }
 
-  // Automatic calculation based on status option:
-  // 'Done' -> 100%, 'In Progress' -> 50%, 'Not Yet' -> 0%
-  const normalized = sCoax.toLowerCase();
-  if (normalized === 'done') return '100%';
-  if (normalized === 'in progress') return '50%';
+  if (sCoax === 'in progress') return '50%';
   return '0%';
 }
 
@@ -246,28 +270,36 @@ export function calculatePullingPercentage(
   if (statusConstruction === 'Completed') return '100%';
   if (statusConstruction === 'Project Cancel' || statusConstruction === 'Cancelled') return '0%';
 
-  if (statusCoax === 'No COAX') {
-    if (statusFo === 'Done') return '100%';
-    if (statusFo === 'In Progress') return '60%';
+  const sFo = (statusFo || '').trim();
+  const sCoax = (statusCoax || '').trim().toLowerCase();
+  const isCoaxNotApplicable = sCoax === 'no coax' || sCoax === 'n/a' || !sCoax;
+
+  // When Coax is N/A or No COAX, FO determines 100% of pulling progress
+  if (isCoaxNotApplicable) {
+    if (sFo === 'Done') return '100%';
+    if (sFo === 'In Progress') return '50%';
+    if (statusConstruction === 'Pulling Cable') return '30%';
     return '0%';
   }
 
-  let foWeight = 0;
-  if (statusFo === 'Done') foWeight = 60;
-  else if (statusFo === 'In Progress') foWeight = 30;
-
-  let coaxWeight = 0;
-  if (statusCoax === 'Done') coaxWeight = 40;
-  else if (statusCoax === 'In Progress') coaxWeight = 20;
-
-  // If FO is done and no coax is required or applicable
-  if (statusFo === 'Done' && (!statusCoax || statusCoax === 'Not Yet')) {
-    return '85%';
-  }
-  if (statusFo === 'Done' && statusCoax === 'Done') {
+  // When both FO and COAX are active
+  if (sFo === 'Done' && sCoax === 'done') {
     return '100%';
   }
-  if (statusFo === 'Not Yet' && statusCoax === 'Not Yet') {
+
+  let foWeight = 0;
+  if (sFo === 'Done') foWeight = 60;
+  else if (sFo === 'In Progress') foWeight = 30;
+
+  let coaxWeight = 0;
+  if (sCoax === 'done') coaxWeight = 40;
+  else if (sCoax === 'in progress') coaxWeight = 20;
+
+  if (sFo === 'Done' && sCoax !== 'done') {
+    return `${Math.min(100, 60 + coaxWeight)}%`;
+  }
+
+  if ((sFo === 'Not Yet' || sFo === 'Not Started') && (sCoax === 'not yet' || sCoax === 'not started')) {
     if (statusConstruction === 'Pulling Cable') return '25%';
     return '0%';
   }

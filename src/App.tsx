@@ -159,20 +159,51 @@ export default function App() {
     return projects.filter((item) => {
       // Direct KPI Card filter handling
       if (activeKpiFilter) {
-        if (activeKpiFilter.key === 'Masih Review Dinas' && item.projectStatus !== 'Masih Review Dinas') {
-          return false;
+        if (activeKpiFilter.key === 'Review Dinas' || activeKpiFilter.key === 'Masih Review Dinas') {
+          const isReview = 
+            item.projectStatus === 'Review Dinas' || 
+            item.projectStatus === 'Masih Review Dinas' ||
+            (Boolean(item.projectStatus) && item.projectStatus.toLowerCase().includes('review'));
+          if (!isReview) return false;
         }
         if (activeKpiFilter.key === 'Has Length' && (!item.panjangRelokasi || Number(item.panjangRelokasi) <= 0)) {
           return false;
         }
+        if (activeKpiFilter.key === 'Relokasi COAX' || activeKpiFilter.key === 'Has Coax Length') {
+          const hasCoax = 
+            Number(item.panjangRelokasiCoax) > 0 || 
+            Number(item.pullingCoaxPanjangTotal) > 0 || 
+            (Boolean(item.statusPullingCableCoax) && item.statusPullingCableCoax !== 'No COAX' && item.statusPullingCableCoax !== 'N/A');
+          if (!hasCoax) return false;
+        }
         if (activeKpiFilter.key === 'In Progress' && item.projectStatus !== 'In Progress' && item.statusConstruction !== 'Pulling Cable') {
           return false;
         }
-        if (activeKpiFilter.key === 'PO Released' && item.statusPengajuanMr !== 'Released' && item.statusPengajuanPo !== 'Released') {
-          return false;
+        if (activeKpiFilter.key === 'MR/PO Approved' || activeKpiFilter.key === 'PO Released' || activeKpiFilter.key === 'Approved') {
+          const isApproved =
+            item.statusPengajuanProject === 'Approved' ||
+            item.statusPengajuanProject === 'Release' ||
+            item.statusPengajuanProject === 'Released' ||
+            item.statusPengajuanPo === 'Approved' ||
+            item.statusPengajuanPo === 'Released' ||
+            item.statusPengajuanPo === 'Release' ||
+            item.statusPengajuanMr === 'Approved' ||
+            item.statusPengajuanMr === 'Released' ||
+            item.statusPengajuanMr === 'Release';
+          if (!isApproved) return false;
         }
-        if (activeKpiFilter.key === 'Pulling Cable' && item.statusPullingCableFo !== 'In Progress' && item.statusPullingCableCoax !== 'In Progress' && item.statusConstruction !== 'Pulling Cable') {
-          return false;
+        if (activeKpiFilter.key === 'Pulling Cable') {
+          const isPulling =
+            item.statusConstruction === 'Pulling Cable' ||
+            item.statusPullingCableFo === 'In Progress' ||
+            item.statusPullingCableFo === 'Done' ||
+            item.statusPullingCableCoax === 'In Progress' ||
+            item.statusPullingCableCoax === 'Done' ||
+            (Boolean(item.pullingCableProgress) && item.pullingCableProgress !== '0%' && item.pullingCableProgress !== 'N/A') ||
+            (Boolean(item.pullingCableFoProgress) && item.pullingCableFoProgress !== '0%' && item.pullingCableFoProgress !== 'N/A') ||
+            Number(item.pullingFoPanjangSelesai || 0) > 0 ||
+            Number(item.pullingPanjangSelesai || 0) > 0;
+          if (!isPulling) return false;
         }
       }
 
@@ -197,7 +228,26 @@ export default function App() {
       if (selectedArea && item.areaKota !== selectedArea) return false;
       if (selectedVendor && item.namaVendor !== selectedVendor) return false;
       if (selectedCategory && item.projectCategory !== selectedCategory) return false;
-      if (selectedStatus && item.projectStatus !== selectedStatus) return false;
+      if (selectedStatus) {
+        if (selectedStatus === 'Review Dinas' || selectedStatus === 'Masih Review Dinas') {
+          const isReview = 
+            item.projectStatus === 'Review Dinas' || 
+            item.projectStatus === 'Masih Review Dinas' ||
+            (Boolean(item.projectStatus) && item.projectStatus.toLowerCase().includes('review'));
+          if (!isReview) return false;
+        } else if (selectedStatus === 'MR/PO Approved' || selectedStatus === 'Approved') {
+          const isApproved =
+            item.statusPengajuanProject === 'Approved' ||
+            item.statusPengajuanProject === 'Release' ||
+            item.statusPengajuanPo === 'Approved' ||
+            item.statusPengajuanPo === 'Released' ||
+            item.statusPengajuanMr === 'Approved' ||
+            item.statusPengajuanMr === 'Released';
+          if (!isApproved) return false;
+        } else if (item.projectStatus !== selectedStatus) {
+          return false;
+        }
+      }
       if (selectedQuarter && item.quarter !== selectedQuarter) return false;
       if (selectedPic && item.picSectionHead !== selectedPic) return false;
 
@@ -388,10 +438,81 @@ export default function App() {
           field === 'pullingPanjangSelesai' ||
           field === 'pullingPanjangTotal' ||
           field === 'pullingCableProgress' ||
-          field === 'panjangRelokasi'
+          field === 'panjangRelokasi' ||
+          field === 'panjangRelokasiCoax' ||
+          field === 'galianPanjangTotal' ||
+          field === 'galianPanjangSelesai' ||
+          field === 'galianSipilProgress'
         ) {
-          const foTotal = Number(item.pullingFoPanjangTotal || item.pullingPanjangTotal || item.panjangRelokasi || 0);
-          const foDone = Number(item.pullingFoPanjangSelesai || 0);
+          // 1. Sync FO Relokasi with Target Meter FO
+          if (field === 'panjangRelokasi') {
+            const num = Number(value) || 0;
+            item.pullingFoPanjangTotal = num;
+            if (!item.galianPanjangTotal || Number(item.galianPanjangTotal) === 0) {
+              item.galianPanjangTotal = num;
+            }
+          }
+          if (field === 'pullingFoPanjangTotal') {
+            item.panjangRelokasi = Number(value) || 0;
+            if (!item.galianPanjangTotal || Number(item.galianPanjangTotal) === 0) {
+              item.galianPanjangTotal = Number(value) || 0;
+            }
+          }
+
+          // 2. Sync COAX Relokasi with Target Meter COAX
+          if (field === 'panjangRelokasiCoax') {
+            const num = Number(value) || 0;
+            item.panjangRelokasiCoax = num;
+            item.pullingCoaxPanjangTotal = num;
+            if (num > 0 && (!item.statusPullingCableCoax || item.statusPullingCableCoax === 'N/A' || item.statusPullingCableCoax === 'No COAX')) {
+              item.statusPullingCableCoax = 'Not Yet';
+            }
+          }
+          if (field === 'pullingCoaxPanjangTotal') {
+            const num = Number(value) || 0;
+            item.pullingCoaxPanjangTotal = num;
+            item.panjangRelokasiCoax = num;
+            if (num > 0 && (!item.statusPullingCableCoax || item.statusPullingCableCoax === 'N/A' || item.statusPullingCableCoax === 'No COAX')) {
+              item.statusPullingCableCoax = 'Not Yet';
+            }
+          }
+
+          // 3. Sync Galian Sipil Progress with Target Meter Galian & Meter Selesai
+          const galianTotal = Number(item.galianPanjangTotal || item.panjangRelokasi || 0);
+          let galianDone = Number(item.galianPanjangSelesai || 0);
+
+          if (field === 'galianSipilProgress') {
+            const sVal = String(value || '').trim();
+            if (sVal === '100%' || sVal.toLowerCase() === 'done' || sVal.toLowerCase() === 'completed') {
+              if (galianTotal > 0) {
+                galianDone = galianTotal;
+                item.galianPanjangSelesai = galianTotal;
+              }
+            } else if (sVal.includes('%')) {
+              const pct = parseInt(sVal, 10);
+              if (!isNaN(pct) && galianTotal > 0) {
+                galianDone = Math.round((pct / 100) * galianTotal);
+                item.galianPanjangSelesai = galianDone;
+              }
+            }
+          } else if (field === 'galianPanjangSelesai' || field === 'galianPanjangTotal' || field === 'panjangRelokasi') {
+            if (galianTotal > 0 && galianDone > 0) {
+              const pct = Math.min(100, Math.round((galianDone / galianTotal) * 100));
+              item.galianSipilProgress = `${pct}%`;
+            } else if (galianDone === 0) {
+              item.galianSipilProgress = '0%';
+            }
+          }
+
+          // 4. FO Pulling Recalculation
+          const foTotal = Number(item.pullingFoPanjangTotal || item.panjangRelokasi || 0);
+          let foDone = Number(item.pullingFoPanjangSelesai || 0);
+
+          // If FO is marked Done and done meters is 0, auto-fill to total
+          if (field === 'statusPullingCableFo' && value === 'Done' && foDone === 0 && foTotal > 0) {
+            foDone = foTotal;
+            item.pullingFoPanjangSelesai = foTotal;
+          }
 
           if (field !== 'pullingCableFoProgress') {
             item.pullingCableFoProgress = calculatePullingFoPercentage(
@@ -402,10 +523,35 @@ export default function App() {
             );
           }
 
-          const coaxTotal = Number(item.pullingCoaxPanjangTotal || item.pullingPanjangTotal || item.panjangRelokasi || 0);
-          const coaxDone = Number(item.pullingCoaxPanjangSelesai || 0);
+          // 5. COAX Pulling Recalculation
+          const coaxTotal = Number(item.pullingCoaxPanjangTotal || item.panjangRelokasiCoax || 0);
+          let coaxDone = Number(item.pullingCoaxPanjangSelesai || 0);
 
-          if (field !== 'pullingCableCoaxProgress') {
+          if (field === 'statusPullingCableCoax') {
+            if (value === 'Done') {
+              if (coaxDone === 0 && coaxTotal > 0) {
+                coaxDone = coaxTotal;
+                item.pullingCoaxPanjangSelesai = coaxTotal;
+              }
+              item.pullingCableCoaxProgress = '100%';
+            } else if (value === 'No COAX' || value === 'N/A') {
+              item.pullingCableCoaxProgress = String(value);
+            }
+          } else if (field === 'pullingCoaxPanjangSelesai') {
+            const doneVal = Number(value) || 0;
+            coaxDone = doneVal;
+            if (coaxTotal > 0) {
+              const pct = Math.min(100, Math.round((doneVal / coaxTotal) * 100));
+              item.pullingCableCoaxProgress = `${pct}%`;
+              if (pct === 100) {
+                item.statusPullingCableCoax = 'Done';
+              } else if (pct > 0 && item.statusPullingCableCoax !== 'Done') {
+                item.statusPullingCableCoax = 'In Progress';
+              }
+            }
+          }
+
+          if (field !== 'pullingCableCoaxProgress' && item.statusPullingCableCoax !== 'No COAX' && item.statusPullingCableCoax !== 'N/A') {
             item.pullingCableCoaxProgress = calculatePullingCoaxPercentage(
               item.statusPullingCableCoax || 'Not Yet',
               coaxDone,
@@ -414,20 +560,30 @@ export default function App() {
             );
           }
 
+          // 6. Overall Pulling Recalculation
           if (field !== 'pullingCableProgress') {
-            const combinedDone = (foDone > 0 || coaxDone > 0) ? (foDone + coaxDone) : Number(item.pullingPanjangSelesai || 0);
-            const combinedTotal = (foTotal > 0 || coaxTotal > 0) ? (foTotal + coaxTotal) : Number(item.pullingPanjangTotal || item.panjangRelokasi || 0);
-
-            if (combinedTotal > 0 && combinedDone > 0) {
-              const pct = Math.min(100, Math.round((combinedDone / combinedTotal) * 100));
-              item.pullingCableProgress = `${pct}%`;
+            const isCoaxNA = !item.statusPullingCableCoax || item.statusPullingCableCoax === 'N/A' || item.statusPullingCableCoax === 'No COAX';
+            if (isCoaxNA) {
+              item.pullingCableProgress = item.pullingCableFoProgress || '0%';
             } else {
-              item.pullingCableProgress = calculatePullingPercentage(
-                item.statusPullingCableFo,
-                item.statusPullingCableCoax,
-                item.statusConstruction
-              );
+              const combinedDone = (foDone > 0 || coaxDone > 0) ? (foDone + coaxDone) : Number(item.pullingPanjangSelesai || 0);
+              const combinedTotal = (foTotal > 0 || coaxTotal > 0) ? (foTotal + coaxTotal) : Number(item.pullingPanjangTotal || item.panjangRelokasi || 0);
+
+              if (combinedTotal > 0 && combinedDone > 0) {
+                const pct = Math.min(100, Math.round((combinedDone / combinedTotal) * 100));
+                item.pullingCableProgress = `${pct}%`;
+              } else {
+                item.pullingCableProgress = calculatePullingPercentage(
+                  item.statusPullingCableFo,
+                  item.statusPullingCableCoax,
+                  item.statusConstruction
+                );
+              }
             }
+          }
+
+          if (item.pullingCableProgress === '100%' && item.statusConstruction === 'Pulling Cable') {
+            item.statusPullingCableFo = 'Done';
           }
         }
 
@@ -517,10 +673,18 @@ export default function App() {
           setIsFormModalOpen(true);
         }}
         projects={projects}
-        onExportExcel={(zonaFilter) => {
-          const res = storageService.exportToMultiSheetExcel(projects, zonaFilter);
+        onExportExcel={(scope) => {
+          const res = storageService.exportToMultiSheetExcel(projects, scope);
           if (res.success) {
-            showToast(`File Excel 4 Sheet [${res.label}] berhasil diunduh (${res.count} proyek).`);
+            showToast(`File Excel [${res.label}] berhasil diunduh (${res.count} proyek).`);
+          } else {
+            showToast('Tidak ada data proyek untuk diekspor pada pilihan ini.');
+          }
+        }}
+        onExportCsv={(scope) => {
+          const res = storageService.exportToCsv(projects, scope);
+          if (res.success) {
+            showToast(`File CSV [${res.label}] berhasil diunduh (${res.count} proyek).`);
           } else {
             showToast('Tidak ada data proyek untuk diekspor pada pilihan ini.');
           }

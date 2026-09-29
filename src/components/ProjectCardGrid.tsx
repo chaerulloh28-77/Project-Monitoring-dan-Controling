@@ -76,6 +76,7 @@ export const ProjectCardGrid: React.FC<ProjectCardGridProps> = ({
       case 'Sudah Audit':
       case 'Sudah BA':
         return 'text-emerald-700 bg-emerald-50 border-emerald-200/80';
+      case 'Review Dinas':
       case 'Masih Review Dinas':
       case 'Not Yet':
       case 'Belum':

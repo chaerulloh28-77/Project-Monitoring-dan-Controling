@@ -138,8 +138,14 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
                   <Building2 className="w-4 h-4 text-sky-600" />
                   <span>Sheet 1: Project List (Informasi Umum)</span>
                 </div>
-                <span className="text-[11px] px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-medium border border-sky-200">
-                  {project.projectStatus || 'Review Dinas'}
+                <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold border ${
+                  project.projectStatus === 'Review Dinas' || project.projectStatus === 'Masih Review Dinas'
+                    ? 'bg-amber-50 text-amber-800 border-amber-300'
+                    : project.projectStatus === 'In Progress'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                    : 'bg-slate-100 text-slate-700 border-slate-300'
+                }`}>
+                  {project.projectStatus || '-'}
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
@@ -187,9 +193,15 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
                   <span className="font-mono text-slate-800">{project.dateSuratPerintahRelokasi || '-'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Panjang Relokasi</span>
+                  <span className="text-slate-400 block text-[11px]">Panjang Relokasi FO</span>
                   <span className="font-mono font-semibold text-slate-900">
                     {project.panjangRelokasi ? `${Number(project.panjangRelokasi).toLocaleString('id-ID')} m` : '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Panjang Relokasi COAX</span>
+                  <span className="font-mono font-semibold text-cyan-700">
+                    {project.panjangRelokasiCoax ? `${Number(project.panjangRelokasiCoax).toLocaleString('id-ID')} m` : '-'}
                   </span>
                 </div>
                 <div>

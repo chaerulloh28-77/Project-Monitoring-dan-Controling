@@ -25,6 +25,8 @@ import { TabVisualIcon } from './TabVisualIcon';
 import {
   ZONA_OPTIONS,
   TAHUN_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
+  STATUS_PENGAJUAN_PO_OPTIONS,
   APD_RELOKASI_OPTIONS,
   KMZ_RELOKASI_OPTIONS,
   APD_LINKNET_OPTIONS,
@@ -179,6 +181,7 @@ export const TableView: React.FC<TableViewProps> = ({
       case 'Approval BAST':
       case 'Teco done':
         return 'text-emerald-700 bg-emerald-50 border border-emerald-200/60 font-medium';
+      case 'Review Dinas':
       case 'Masih Review Dinas':
       case 'Not Yet':
       case 'Belum':
@@ -472,6 +475,24 @@ export const TableView: React.FC<TableViewProps> = ({
                                 </option>
                               ))}
                             </select>
+                          ) : col.key === 'projectStatus' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {PROJECT_STATUS_OPTIONS.map((st) => (
+                                <option key={st} value={st}>{st}</option>
+                              ))}
+                            </select>
                           ) : col.key === 'zona' ? (
                             <select
                               autoFocus
@@ -659,6 +680,24 @@ export const TableView: React.FC<TableViewProps> = ({
                               className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
                             >
                               {STATUS_PENGAJUAN_PROJECT_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : col.key === 'statusPengajuanPo' || col.key === 'statusPengajuanMr' ? (
+                            <select
+                              autoFocus
+                              value={cellTempText}
+                              onChange={(e) => {
+                                setCellTempText(e.target.value);
+                                if (onQuickUpdateCell) {
+                                  onQuickUpdateCell(row.id, col.key, e.target.value);
+                                }
+                                setEditingCell(null);
+                              }}
+                              onBlur={() => commitCellEdit(row.id, col.key)}
+                              className="w-full px-1 py-0.5 text-xs border border-sky-500 rounded bg-white focus:outline-none shadow-xs font-medium cursor-pointer"
+                            >
+                              {STATUS_PENGAJUAN_PO_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
                               ))}
                             </select>
@@ -959,21 +998,37 @@ export const TableView: React.FC<TableViewProps> = ({
                               <span>Pilih tanggal</span>
                             </span>
                           )
-                        ) : (col.key === 'pullingCableFoProgress' || col.key === 'pullingCableCoaxProgress') && valueStr ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden">
-                              <div
-                                className={`h-2 rounded-full transition-all ${
-                                  col.key === 'pullingCableFoProgress' ? 'bg-sky-600' : 'bg-purple-600'
-                                }`}
-                                style={{ width: valueStr }}
-                              />
-                            </div>
-                            <span className="font-mono text-[11px] font-semibold text-slate-700">
+                        ) : (col.key === 'pullingCableFoProgress' || col.key === 'pullingCableCoaxProgress' || col.key === 'pullingCableProgress' || col.key === 'galianSipilProgress') && valueStr ? (
+                          valueStr === 'N/A' || valueStr === 'No COAX' ? (
+                            <span className="inline-block px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 bg-slate-50 border border-slate-200">
                               {valueStr}
                             </span>
-                          </div>
-                        ) : (col.key === 'panjangRelokasi' || col.key === 'pullingFoPanjangSelesai' || col.key === 'pullingFoPanjangTotal' || col.key === 'pullingCoaxPanjangSelesai' || col.key === 'pullingCoaxPanjangTotal' || col.key === 'galianPanjangSelesai' || col.key === 'galianPanjangTotal' || col.key === 'pullingPanjangSelesai' || col.key === 'pullingPanjangTotal') ? (
+                          ) : (
+                            <div className="flex items-center justify-center gap-1.5 min-w-[90px]">
+                              <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={`h-2 rounded-full transition-all duration-300 ${
+                                    valueStr === '100%' || valueStr.toLowerCase() === 'done'
+                                      ? 'bg-emerald-500'
+                                      : col.key === 'galianSipilProgress'
+                                      ? 'bg-amber-500'
+                                      : col.key === 'pullingCableFoProgress'
+                                      ? 'bg-sky-600'
+                                      : col.key === 'pullingCableCoaxProgress'
+                                      ? 'bg-purple-600'
+                                      : 'bg-indigo-600'
+                                  }`}
+                                  style={{ width: `${Math.min(100, Math.max(0, parseInt(valueStr, 10) || (valueStr.toLowerCase() === 'done' ? 100 : 0)))}%` }}
+                                />
+                              </div>
+                              <span className={`font-mono text-[11px] font-bold ${
+                                valueStr === '100%' || valueStr.toLowerCase() === 'done' ? 'text-emerald-700' : 'text-slate-700'
+                              }`}>
+                                {valueStr}
+                              </span>
+                            </div>
+                          )
+                        ) : (col.key === 'panjangRelokasi' || col.key === 'panjangRelokasiCoax' || col.key === 'pullingFoPanjangSelesai' || col.key === 'pullingFoPanjangTotal' || col.key === 'pullingCoaxPanjangSelesai' || col.key === 'pullingCoaxPanjangTotal' || col.key === 'galianPanjangSelesai' || col.key === 'galianPanjangTotal' || col.key === 'pullingPanjangSelesai' || col.key === 'pullingPanjangTotal') ? (
                           <span className="font-mono">
                             {valueStr !== undefined && valueStr !== '' && valueStr !== null && Number(valueStr) > 0 ? (
                               `${Number(valueStr).toLocaleString('id-ID')} m`

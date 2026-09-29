@@ -13,9 +13,11 @@ import {
   FileCheck2,
   Activity,
   AlertCircle,
-  GitCommit
+  GitCommit,
+  Plus,
+  Trash2
 } from 'lucide-react';
-import { ProjectData, PIC_SECTION_HEAD_OPTIONS } from '../types/project';
+import { ProjectData, PIC_SECTION_HEAD_OPTIONS, HhItem, PoleItem, GalvanisItem } from '../types/project';
 import {
   ZONA_OPTIONS,
   TAHUN_OPTIONS,
@@ -46,6 +48,25 @@ import {
   calculatePullingFoPercentage,
   calculatePullingCoaxPercentage,
 } from '../data/dropdownOptions';
+
+export const formatHhSummary = (items: HhItem[] = []): string => {
+  const valid = items.filter(it => it.qty !== undefined && it.qty !== '' && Number(it.qty) > 0);
+  if (valid.length === 0) return '';
+  return valid.map(it => `${it.type} ${it.size} (${it.qty} Unit)`).join(', ');
+};
+
+export const formatPoleGalvanisSummary = (poles: PoleItem[] = [], galvs: GalvanisItem[] = []): string => {
+  const validPoles = poles.filter(p => p.qty !== undefined && p.qty !== '' && Number(p.qty) > 0);
+  const validGalvs = galvs.filter(g => g.length !== undefined && g.length !== '' && Number(g.length) > 0);
+  const parts: string[] = [];
+  if (validPoles.length > 0) {
+    parts.push(validPoles.map(p => `${p.type} (${p.qty} Ea)`).join(', '));
+  }
+  if (validGalvs.length > 0) {
+    parts.push(validGalvs.map(g => `Galv ${g.size} (${g.length}m)`).join(', '));
+  }
+  return parts.join(' | ');
+};
 
 interface ProjectFormModalProps {
   isOpen: boolean;
@@ -107,12 +128,49 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       setSaveSuccessNotice(false);
 
       if (initialData) {
-        setFormData({ ...initialData });
+        const hhItems: HhItem[] = (initialData.installHhItems && initialData.installHhItems.length > 0)
+          ? initialData.installHhItems
+          : [{
+              id: '1',
+              type: initialData.installHhType || 'HH',
+              size: initialData.installHhSize || '80x80',
+              qty: initialData.installHhQty ?? ''
+            }];
+
+        const poleItems: PoleItem[] = (initialData.installPoleItems && initialData.installPoleItems.length > 0)
+          ? initialData.installPoleItems
+          : [{
+              id: '1',
+              type: initialData.installPoleType || 'Tiang 8',
+              qty: initialData.installPoleQty ?? ''
+            }];
+
+        const galvItems: GalvanisItem[] = (initialData.installGalvanisItems && initialData.installGalvanisItems.length > 0)
+          ? initialData.installGalvanisItems
+          : [{
+              id: '1',
+              size: initialData.installGalvanisSize || '2"',
+              length: initialData.installGalvanisLength ?? ''
+            }];
+
+        setFormData({
+          ...initialData,
+          panjangRelokasiCoax: initialData.panjangRelokasiCoax ?? 0,
+          installHhItems: hhItems,
+          installPoleItems: poleItems,
+          installGalvanisItems: galvItems,
+          installHhProgress: initialData.installHhProgress || formatHhSummary(hhItems),
+          installPoleProgress: initialData.installPoleProgress || formatPoleGalvanisSummary(poleItems, galvItems),
+        });
       } else {
         // Generate new project default template with automatic PMO-ID sequence
         const nextNo = (existingProjects?.length || totalProjects) + 1;
         const initialCategory = 'GOV IPPJU';
         const nextPmo = getNextPmoIdInfo(existingProjects || []);
+
+        const defaultHh: HhItem[] = [{ id: '1', type: 'HH', size: '80x80', qty: '' }];
+        const defaultPole: PoleItem[] = [{ id: '1', type: 'Tiang 8', qty: '' }];
+        const defaultGalv: GalvanisItem[] = [{ id: '1', size: '2"', length: '' }];
 
         setFormData({
           id: `proj-${Date.now()}`,
@@ -123,7 +181,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           projectDescription: '',
           zona: 'Jabo 1',
           areaKota: 'Central',
-          projectStatus: 'Masih Review Dinas',
+          projectStatus: 'Review Dinas',
           quarter: 'Q1-26',
           picSectionHead: 'Mega',
           namaVendor: '',
@@ -131,6 +189,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           bulan: '',
           tahun: '',
           panjangRelokasi: 0,
+          panjangRelokasiCoax: 0,
           apdRelokasi: '',
           kmzRelokasi: '',
           statusAudit: '',
@@ -185,6 +244,16 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           galianAksesProgress: '',
           galianCrossingProgress: '',
           installHhProgress: '',
+          installHhType: 'HH',
+          installHhSize: '80x80',
+          installHhQty: '',
+          installHhItems: defaultHh,
+          installPoleType: 'Tiang 8',
+          installPoleQty: '',
+          installPoleItems: defaultPole,
+          installGalvanisSize: '2"',
+          installGalvanisLength: '',
+          installGalvanisItems: defaultGalv,
           installPoleProgress: '',
           pullingCableProgress: '',
           projectSapId: '',
@@ -197,6 +266,157 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 
   if (!isOpen) return null;
 
+  // HH Multi-Item Handlers
+  const handleAddHhItem = () => {
+    const newItem: HhItem = {
+      id: Date.now().toString(),
+      type: 'HH',
+      size: '80x80',
+      qty: '',
+    };
+    const newItems = [...(formData.installHhItems || []), newItem];
+    const summary = formatHhSummary(newItems);
+    setFormData((prev) => ({
+      ...prev,
+      installHhItems: newItems,
+      installHhProgress: summary,
+      installHhType: newItems[0]?.type || 'HH',
+      installHhSize: newItems[0]?.size || '80x80',
+      installHhQty: newItems[0]?.qty || '',
+    }));
+  };
+
+  const handleUpdateHhItem = (id: string, field: keyof HhItem, val: string | number) => {
+    const newItems = (formData.installHhItems || []).map((it) => {
+      if (it.id === id) {
+        return { ...it, [field]: val };
+      }
+      return it;
+    });
+    const summary = formatHhSummary(newItems);
+    setFormData((prev) => ({
+      ...prev,
+      installHhItems: newItems,
+      installHhProgress: summary,
+      installHhType: newItems[0]?.type || 'HH',
+      installHhSize: newItems[0]?.size || '80x80',
+      installHhQty: newItems[0]?.qty || '',
+    }));
+  };
+
+  const handleRemoveHhItem = (id: string) => {
+    const current = formData.installHhItems || [];
+    if (current.length <= 1) return;
+    const newItems = current.filter((it) => it.id !== id);
+    const summary = formatHhSummary(newItems);
+    setFormData((prev) => ({
+      ...prev,
+      installHhItems: newItems,
+      installHhProgress: summary,
+      installHhType: newItems[0]?.type || 'HH',
+      installHhSize: newItems[0]?.size || '80x80',
+      installHhQty: newItems[0]?.qty || '',
+    }));
+  };
+
+  // Pole Multi-Item Handlers
+  const handleAddPoleItem = () => {
+    const newItem: PoleItem = {
+      id: Date.now().toString(),
+      type: 'Tiang 8',
+      qty: '',
+    };
+    const newItems = [...(formData.installPoleItems || []), newItem];
+    const summary = formatPoleGalvanisSummary(newItems, formData.installGalvanisItems || []);
+    setFormData((prev) => ({
+      ...prev,
+      installPoleItems: newItems,
+      installPoleProgress: summary,
+      installPoleType: newItems[0]?.type || 'Tiang 8',
+      installPoleQty: newItems[0]?.qty || '',
+    }));
+  };
+
+  const handleUpdatePoleItem = (id: string, field: keyof PoleItem, val: string | number) => {
+    const newItems = (formData.installPoleItems || []).map((it) => {
+      if (it.id === id) {
+        return { ...it, [field]: val };
+      }
+      return it;
+    });
+    const summary = formatPoleGalvanisSummary(newItems, formData.installGalvanisItems || []);
+    setFormData((prev) => ({
+      ...prev,
+      installPoleItems: newItems,
+      installPoleProgress: summary,
+      installPoleType: newItems[0]?.type || 'Tiang 8',
+      installPoleQty: newItems[0]?.qty || '',
+    }));
+  };
+
+  const handleRemovePoleItem = (id: string) => {
+    const current = formData.installPoleItems || [];
+    if (current.length <= 1) return;
+    const newItems = current.filter((it) => it.id !== id);
+    const summary = formatPoleGalvanisSummary(newItems, formData.installGalvanisItems || []);
+    setFormData((prev) => ({
+      ...prev,
+      installPoleItems: newItems,
+      installPoleProgress: summary,
+      installPoleType: newItems[0]?.type || 'Tiang 8',
+      installPoleQty: newItems[0]?.qty || '',
+    }));
+  };
+
+  // Galvanis Multi-Item Handlers
+  const handleAddGalvanisItem = () => {
+    const newItem: GalvanisItem = {
+      id: Date.now().toString(),
+      size: '2"',
+      length: '',
+    };
+    const newItems = [...(formData.installGalvanisItems || []), newItem];
+    const summary = formatPoleGalvanisSummary(formData.installPoleItems || [], newItems);
+    setFormData((prev) => ({
+      ...prev,
+      installGalvanisItems: newItems,
+      installPoleProgress: summary,
+      installGalvanisSize: newItems[0]?.size || '2"',
+      installGalvanisLength: newItems[0]?.length || '',
+    }));
+  };
+
+  const handleUpdateGalvanisItem = (id: string, field: keyof GalvanisItem, val: string | number) => {
+    const newItems = (formData.installGalvanisItems || []).map((it) => {
+      if (it.id === id) {
+        return { ...it, [field]: val };
+      }
+      return it;
+    });
+    const summary = formatPoleGalvanisSummary(formData.installPoleItems || [], newItems);
+    setFormData((prev) => ({
+      ...prev,
+      installGalvanisItems: newItems,
+      installPoleProgress: summary,
+      installGalvanisSize: newItems[0]?.size || '2"',
+      installGalvanisLength: newItems[0]?.length || '',
+    }));
+  };
+
+  const handleRemoveGalvanisItem = (id: string) => {
+    const current = formData.installGalvanisItems || [];
+    if (current.length <= 1) return;
+    const newItems = current.filter((it) => it.id !== id);
+    const summary = formatPoleGalvanisSummary(formData.installPoleItems || [], newItems);
+    setFormData((prev) => ({
+      ...prev,
+      installGalvanisItems: newItems,
+      installPoleProgress: summary,
+      installGalvanisSize: newItems[0]?.size || '2"',
+      installGalvanisLength: newItems[0]?.length || '',
+    }));
+  };
+
   const handleChange = (field: keyof ProjectData, value: unknown) => {
     setFormData((prev) => {
       const updated = {
@@ -204,23 +424,69 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         [field]: value,
       };
 
-      // Auto-compute Galian Sipil Progress if galian parameters or status changed
+      // 1. Sync FO Relokasi with Target Meter FO
+      if (field === 'panjangRelokasi') {
+        const num = Number(value) || 0;
+        updated.pullingFoPanjangTotal = num;
+        if (!updated.galianPanjangTotal || Number(updated.galianPanjangTotal) === 0) {
+          updated.galianPanjangTotal = num;
+        }
+      }
+      if (field === 'pullingFoPanjangTotal') {
+        updated.panjangRelokasi = Number(value) || 0;
+        if (!updated.galianPanjangTotal || Number(updated.galianPanjangTotal) === 0) {
+          updated.galianPanjangTotal = Number(value) || 0;
+        }
+      }
+
+      // 2. Sync COAX Relokasi with Target Meter COAX
+      if (field === 'panjangRelokasiCoax') {
+        const num = Number(value) || 0;
+        updated.panjangRelokasiCoax = num;
+        updated.pullingCoaxPanjangTotal = num;
+        if (num > 0 && (!updated.statusPullingCableCoax || updated.statusPullingCableCoax === 'N/A' || updated.statusPullingCableCoax === 'No COAX')) {
+          updated.statusPullingCableCoax = 'Not Yet';
+        }
+      }
+      if (field === 'pullingCoaxPanjangTotal') {
+        const num = Number(value) || 0;
+        updated.pullingCoaxPanjangTotal = num;
+        updated.panjangRelokasiCoax = num;
+        if (num > 0 && (!updated.statusPullingCableCoax || updated.statusPullingCableCoax === 'N/A' || updated.statusPullingCableCoax === 'No COAX')) {
+          updated.statusPullingCableCoax = 'Not Yet';
+        }
+      }
+
+      // 3. Auto-compute Galian Sipil Progress if galian parameters or status changed
       if (
         field === 'statusConstruction' ||
         field === 'galianPanjangSelesai' ||
         field === 'galianPanjangTotal' ||
-        field === 'panjangRelokasi'
+        field === 'panjangRelokasi' ||
+        field === 'galianSipilProgress'
       ) {
         const totalTarget = Number(updated.galianPanjangTotal || updated.panjangRelokasi || 0);
-        const doneMeters = Number(updated.galianPanjangSelesai || 0);
-        if (totalTarget > 0 && doneMeters > 0) {
+        let doneMeters = Number(updated.galianPanjangSelesai || 0);
+
+        if (field === 'galianSipilProgress') {
+          const sVal = String(value || '').trim();
+          if (sVal === '100%' || sVal.toLowerCase() === 'done' || sVal.toLowerCase() === 'completed') {
+            if (totalTarget > 0) {
+              doneMeters = totalTarget;
+              updated.galianPanjangSelesai = totalTarget;
+            }
+          } else if (sVal.includes('%')) {
+            const pct = parseInt(sVal, 10);
+            if (!isNaN(pct) && totalTarget > 0) {
+              doneMeters = Math.round((pct / 100) * totalTarget);
+              updated.galianPanjangSelesai = doneMeters;
+            }
+          }
+        } else if (totalTarget > 0 && doneMeters > 0) {
           const pct = Math.min(100, Math.round((doneMeters / totalTarget) * 100));
           updated.galianSipilProgress = `${pct}%`;
-        } else {
-          updated.galianSipilProgress = calculateGalianPercentage(
-            updated.statusConstruction || 'Project Not Started',
-            updated.galianSipilProgress
-          );
+        } else if (doneMeters === 0) {
+          updated.galianSipilProgress = '0%';
         }
       }
 
@@ -235,10 +501,16 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         field === 'statusConstruction' ||
         field === 'pullingPanjangSelesai' ||
         field === 'pullingPanjangTotal' ||
-        field === 'panjangRelokasi'
+        field === 'panjangRelokasi' ||
+        field === 'panjangRelokasiCoax'
       ) {
         const foTotal = Number(updated.pullingFoPanjangTotal || updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
-        const foDone = Number(updated.pullingFoPanjangSelesai || 0);
+        let foDone = Number(updated.pullingFoPanjangSelesai || 0);
+
+        if (field === 'statusPullingCableFo' && value === 'Done' && foDone === 0 && foTotal > 0) {
+          foDone = foTotal;
+          updated.pullingFoPanjangSelesai = foTotal;
+        }
 
         // Auto compute FO progress
         updated.pullingCableFoProgress = calculatePullingFoPercentage(
@@ -248,30 +520,65 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           updated.statusConstruction
         );
 
-        const coaxTotal = Number(updated.pullingCoaxPanjangTotal || updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
-        const coaxDone = Number(updated.pullingCoaxPanjangSelesai || 0);
+        const coaxTotal = Number(updated.pullingCoaxPanjangTotal || updated.panjangRelokasiCoax || 0);
+        let coaxDone = Number(updated.pullingCoaxPanjangSelesai || 0);
 
-        // Auto compute COAX progress
-        updated.pullingCableCoaxProgress = calculatePullingCoaxPercentage(
-          updated.statusPullingCableCoax || 'Not Yet',
-          coaxDone,
-          coaxTotal,
-          updated.statusConstruction
-        );
+        if (field === 'statusPullingCableCoax') {
+          if (value === 'Done') {
+            if (coaxDone === 0 && coaxTotal > 0) {
+              coaxDone = coaxTotal;
+              updated.pullingCoaxPanjangSelesai = coaxTotal;
+            }
+            updated.pullingCableCoaxProgress = '100%';
+          } else if (value === 'No COAX' || value === 'N/A') {
+            updated.pullingCableCoaxProgress = String(value);
+          }
+        } else if (field === 'pullingCoaxPanjangSelesai') {
+          const doneVal = Number(value) || 0;
+          coaxDone = doneVal;
+          if (coaxTotal > 0) {
+            const pct = Math.min(100, Math.round((doneVal / coaxTotal) * 100));
+            updated.pullingCableCoaxProgress = `${pct}%`;
+            if (pct === 100) {
+              updated.statusPullingCableCoax = 'Done';
+            } else if (pct > 0 && updated.statusPullingCableCoax !== 'Done') {
+              updated.statusPullingCableCoax = 'In Progress';
+            }
+          }
+        }
 
-        // Overall Pulling Cable Progress
-        const combinedDone = (foDone > 0 || coaxDone > 0) ? (foDone + coaxDone) : Number(updated.pullingPanjangSelesai || 0);
-        const combinedTotal = (foTotal > 0 || coaxTotal > 0) ? (foTotal + coaxTotal) : Number(updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
-
-        if (combinedTotal > 0 && combinedDone > 0) {
-          const pct = Math.min(100, Math.round((combinedDone / combinedTotal) * 100));
-          updated.pullingCableProgress = `${pct}%`;
-        } else {
-          updated.pullingCableProgress = calculatePullingPercentage(
-            updated.statusPullingCableFo || 'Not Yet',
+        // Auto compute COAX progress if not explicitly handled
+        if (field !== 'pullingCoaxPanjangSelesai' && updated.statusPullingCableCoax !== 'No COAX' && updated.statusPullingCableCoax !== 'N/A') {
+          updated.pullingCableCoaxProgress = calculatePullingCoaxPercentage(
             updated.statusPullingCableCoax || 'Not Yet',
+            coaxDone,
+            coaxTotal,
             updated.statusConstruction
           );
+        }
+
+        // Overall Pulling Cable Progress
+        const isCoaxNA = !updated.statusPullingCableCoax || updated.statusPullingCableCoax === 'N/A' || updated.statusPullingCableCoax === 'No COAX';
+        if (isCoaxNA) {
+          updated.pullingCableProgress = updated.pullingCableFoProgress || '0%';
+        } else {
+          const combinedDone = (foDone > 0 || coaxDone > 0) ? (foDone + coaxDone) : Number(updated.pullingPanjangSelesai || 0);
+          const combinedTotal = (foTotal > 0 || coaxTotal > 0) ? (foTotal + coaxTotal) : Number(updated.pullingPanjangTotal || updated.panjangRelokasi || 0);
+
+          if (combinedTotal > 0 && combinedDone > 0) {
+            const pct = Math.min(100, Math.round((combinedDone / combinedTotal) * 100));
+            updated.pullingCableProgress = `${pct}%`;
+          } else {
+            updated.pullingCableProgress = calculatePullingPercentage(
+              updated.statusPullingCableFo || 'Not Yet',
+              updated.statusPullingCableCoax || 'Not Yet',
+              updated.statusConstruction
+            );
+          }
+        }
+
+        if (updated.pullingCableProgress === '100%' && updated.statusConstruction === 'Pulling Cable') {
+          updated.statusPullingCableFo = 'Done';
         }
       }
 
@@ -557,6 +864,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     onChange={(e) => handleChange('projectStatus', e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500"
                   >
+                    <option value="Review Dinas">Review Dinas</option>
                     <option value="Masih Review Dinas">Masih Review Dinas</option>
                     <option value="In Progress">In Progress</option>
                     <option value="Project Not Started">Project Not Started</option>
@@ -663,18 +971,72 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Panjang Relokasi (meter)</label>
-                  <input
-                    type="number"
-                    value={formData.panjangRelokasi || ''}
-                    onChange={(e) => handleChange('panjangRelokasi', e.target.value ? Number(e.target.value) : '')}
-                    placeholder="e.g. 10000"
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
-                  />
+              {/* Panjang Relokasi FO, COAX & Galian Sipil */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <HardHat className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Panjang Relokasi FO, COAX & Galian Sipil</span>
+                  </span>
+                  <span className="text-[11px] font-mono font-medium text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    Otomatis Terhubung ke Tab Status Construction
+                  </span>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Panjang Relokasi FO (m)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.panjangRelokasi !== undefined ? formData.panjangRelokasi : ''}
+                      onChange={(e) => handleChange('panjangRelokasi', e.target.value ? Number(e.target.value) : '')}
+                      placeholder="e.g. 10000"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                    />
+                    <span className="text-[10px] text-slate-500 mt-0.5 block">
+                      Target Meter FO (Pulling Cable FO)
+                    </span>
+                  </div>
 
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Panjang Relokasi COAX (m)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.panjangRelokasiCoax !== undefined ? formData.panjangRelokasiCoax : ''}
+                      onChange={(e) => handleChange('panjangRelokasiCoax', e.target.value ? Number(e.target.value) : '')}
+                      placeholder="e.g. 2500"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                    />
+                    <span className="text-[10px] text-slate-500 mt-0.5 block">
+                      Target Meter COAX (Pulling Cable COAX)
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Panjang Galian (m)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.galianPanjangTotal !== undefined ? formData.galianPanjangTotal : ''}
+                      onChange={(e) => handleChange('galianPanjangTotal', e.target.value ? Number(e.target.value) : '')}
+                      placeholder="e.g. 10000"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                    />
+                    <span className="text-[10px] text-slate-500 mt-0.5 block">
+                      Target Meter (Galian Sipil)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">APD Relokasi</label>
                   <select
@@ -994,12 +1356,25 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status CO</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status CO (FO)</label>
                   <select
                     value={formData.statusCo || 'Not Yet'}
                     onChange={(e) => handleChange('statusCo', e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                  >
+                    {STATUS_CO_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status CO Coax</label>
+                  <select
+                    value={formData.statusCoCoax || 'Not Yet'}
+                    onChange={(e) => handleChange('statusCoCoax', e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
                   >
                     {STATUS_CO_OPTIONS.map((opt) => (
@@ -1046,109 +1421,196 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                 </div>
               </div>
 
-              {/* Install HH & Pole Progress Configurator */}
+              {/* Install HH & Pole Progress Configurator with Multi-Item Selection */}
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-3">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-200">
                   <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <HardHat className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Spesifikasi Install HH, Pole & Galvanis</span>
+                    <span>Spesifikasi Install HH, Pole & Galvanis (Multi-Item & Jumlah)</span>
                   </h4>
                   <span className="text-[11px] font-mono text-sky-700 font-semibold bg-sky-100/60 px-2 py-0.5 rounded">
                     {formData.installHhProgress || 'Belum dikonfigurasi'}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   {/* 1. HH, HB, MH (Unit) */}
-                  <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
-                    <label className="block text-[11px] font-bold text-slate-700">1. HH, HB, MH (Unit)</label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <select
-                        value={formData.installHhType || 'HH'}
-                        onChange={(e) => handleChange('installHhType', e.target.value)}
-                        className="px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500"
-                      >
-                        {HH_TYPE_OPTIONS.map((t) => (
-                          <option key={t} value={t}>{t}</option>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-100 mb-2">
+                        <label className="text-[11px] font-bold text-slate-700">1. HH, HB, MH (Unit)</label>
+                        <button
+                          type="button"
+                          onClick={handleAddHhItem}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Tambah Item</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
+                        {(formData.installHhItems || []).map((it, idx) => (
+                          <div key={it.id || idx} className="p-1.5 bg-slate-50/80 rounded border border-slate-200/80 space-y-1.5">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <select
+                                value={it.type || 'HH'}
+                                onChange={(e) => handleUpdateHhItem(it.id, 'type', e.target.value)}
+                                className="px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium cursor-pointer"
+                              >
+                                {HH_TYPE_OPTIONS.map((t) => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                              <select
+                                value={it.size || '80x80'}
+                                onChange={(e) => handleUpdateHhItem(it.id, 'size', e.target.value)}
+                                className="px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono cursor-pointer"
+                              >
+                                {HH_SIZE_OPTIONS.map((s) => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="0"
+                                value={it.qty || ''}
+                                onChange={(e) => handleUpdateHhItem(it.id, 'qty', e.target.value ? Number(e.target.value) : '')}
+                                placeholder="Jumlah unit"
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white font-mono"
+                              />
+                              <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">Unit</span>
+                              {(formData.installHhItems || []).length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveHhItem(it.id)}
+                                  className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                                  title="Hapus baris ini"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         ))}
-                      </select>
-                      <select
-                        value={formData.installHhSize || '80x80'}
-                        onChange={(e) => handleChange('installHhSize', e.target.value)}
-                        className="px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
-                      >
-                        {HH_SIZE_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.installHhQty || ''}
-                        onChange={(e) => handleChange('installHhQty', e.target.value)}
-                        placeholder="Jumlah"
-                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono"
-                      />
-                      <span className="text-[11px] text-slate-500 font-medium">Unit</span>
+                      </div>
                     </div>
                   </div>
 
                   {/* 2. Pole (Ea) */}
-                  <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
-                    <label className="block text-[11px] font-bold text-slate-700">2. Pole (Ea)</label>
-                    <select
-                      value={formData.installPoleType || 'Tiang 8'}
-                      onChange={(e) => handleChange('installPoleType', e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    >
-                      {POLE_OPTIONS.map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.installPoleQty || ''}
-                        onChange={(e) => handleChange('installPoleQty', e.target.value)}
-                        placeholder="Jumlah"
-                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono"
-                      />
-                      <span className="text-[11px] text-slate-500 font-medium">Ea</span>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-100 mb-2">
+                        <label className="text-[11px] font-bold text-slate-700">2. Pole / Tiang (Ea)</label>
+                        <button
+                          type="button"
+                          onClick={handleAddPoleItem}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Tambah Item</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
+                        {(formData.installPoleItems || []).map((it, idx) => (
+                          <div key={it.id || idx} className="p-1.5 bg-slate-50/80 rounded border border-slate-200/80 space-y-1.5">
+                            <select
+                              value={it.type || 'Tiang 8'}
+                              onChange={(e) => handleUpdatePoleItem(it.id, 'type', e.target.value)}
+                              className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium cursor-pointer"
+                            >
+                              {POLE_OPTIONS.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="0"
+                                value={it.qty || ''}
+                                onChange={(e) => handleUpdatePoleItem(it.id, 'qty', e.target.value ? Number(e.target.value) : '')}
+                                placeholder="Jumlah tiang"
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white font-mono"
+                              />
+                              <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">Ea</span>
+                              {(formData.installPoleItems || []).length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePoleItem(it.id)}
+                                  className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                                  title="Hapus baris ini"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   {/* 3. Galvanis (Meter) */}
-                  <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
-                    <label className="block text-[11px] font-bold text-slate-700">3. Galvanis (meter)</label>
-                    <select
-                      value={formData.installGalvanisSize || '2"'}
-                      onChange={(e) => handleChange('installGalvanisSize', e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
-                    >
-                      {GALVANIS_OPTIONS.map((g) => (
-                        <option key={g} value={g}>{g}</option>
-                      ))}
-                    </select>
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.installGalvanisLength || ''}
-                        onChange={(e) => handleChange('installGalvanisLength', e.target.value)}
-                        placeholder="Panjang"
-                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono"
-                      />
-                      <span className="text-[11px] text-slate-500 font-medium">Meter</span>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-100 mb-2">
+                        <label className="text-[11px] font-bold text-slate-700">3. Galvanis (meter)</label>
+                        <button
+                          type="button"
+                          onClick={handleAddGalvanisItem}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Tambah Item</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
+                        {(formData.installGalvanisItems || []).map((it, idx) => (
+                          <div key={it.id || idx} className="p-1.5 bg-slate-50/80 rounded border border-slate-200/80 space-y-1.5">
+                            <select
+                              value={it.size || '2"'}
+                              onChange={(e) => handleUpdateGalvanisItem(it.id, 'size', e.target.value)}
+                              className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono cursor-pointer"
+                            >
+                              {GALVANIS_OPTIONS.map((g) => (
+                                <option key={g} value={g}>{g}</option>
+                              ))}
+                            </select>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="0"
+                                value={it.length || ''}
+                                onChange={(e) => handleUpdateGalvanisItem(it.id, 'length', e.target.value ? Number(e.target.value) : '')}
+                                placeholder="Panjang meter"
+                                className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white font-mono"
+                              />
+                              <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">Meter</span>
+                              {(formData.installGalvanisItems || []).length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveGalvanisItem(it.id)}
+                                  className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                                  title="Hapus baris ini"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Label Ringkasan Install HH</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Label Ringkasan Install HH (Otomatis)</label>
                     <input
                       type="text"
                       value={formData.installHhProgress || ''}
@@ -1158,12 +1620,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Label Ringkasan Install Pole & Galvanis</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Label Ringkasan Install Pole & Galvanis (Otomatis)</label>
                     <input
                       type="text"
                       value={formData.installPoleProgress || ''}
                       onChange={(e) => handleChange('installPoleProgress', e.target.value)}
-                      placeholder="e.g. Tiang 8 (10 Ea) + Galv 2 (50m)"
+                      placeholder="e.g. Tiang 7 (5 Ea), Tiang 8 (10 Ea) | Galv 2 (50m)"
                       className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded focus:outline-none font-mono"
                     />
                   </div>
@@ -1289,7 +1751,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                       <input
                         type="number"
                         min="0"
-                        value={formData.pullingCoaxPanjangTotal ?? formData.panjangRelokasi ?? ''}
+                        value={formData.pullingCoaxPanjangTotal ?? formData.panjangRelokasiCoax ?? ''}
                         onChange={(e) => handleChange('pullingCoaxPanjangTotal', e.target.value)}
                         placeholder="e.g. 1000"
                         className="w-full px-2 py-1 text-xs border border-purple-300 rounded bg-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"

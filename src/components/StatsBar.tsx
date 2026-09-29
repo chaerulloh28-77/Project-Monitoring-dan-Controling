@@ -26,7 +26,10 @@ export const StatsBar: React.FC<StatsBarProps> = ({ projects, onQuickFilter, act
   ).length;
 
   const reviewDinasCount = projects.filter(
-    (p) => p.projectStatus === 'Masih Review Dinas'
+    (p) => 
+      p.projectStatus === 'Review Dinas' || 
+      p.projectStatus === 'Masih Review Dinas' ||
+      (p.projectStatus && p.projectStatus.toLowerCase().includes('review'))
   ).length;
 
   const totalLengthMeters = projects.reduce((acc, curr) => {
@@ -34,16 +37,39 @@ export const StatsBar: React.FC<StatsBarProps> = ({ projects, onQuickFilter, act
     return acc + num;
   }, 0);
 
-  const poReleasedCount = projects.filter(
-    (p) => p.statusPengajuanMr === 'Released' || p.statusPengajuanPo === 'Released'
+  const totalLengthCoaxMeters = projects.reduce((acc, curr) => {
+    const num = Number(curr.panjangRelokasiCoax || curr.pullingCoaxPanjangTotal || 0);
+    return acc + num;
+  }, 0);
+
+  const mrPoApprovedCount = projects.filter(
+    (p) =>
+      p.statusPengajuanProject === 'Approved' ||
+      p.statusPengajuanProject === 'Release' ||
+      p.statusPengajuanProject === 'Released' ||
+      p.statusPengajuanPo === 'Approved' ||
+      p.statusPengajuanPo === 'Released' ||
+      p.statusPengajuanPo === 'Release' ||
+      p.statusPengajuanMr === 'Approved' ||
+      p.statusPengajuanMr === 'Released' ||
+      p.statusPengajuanMr === 'Release'
   ).length;
 
   const pullingCableActive = projects.filter(
-    (p) => p.statusPullingCableFo === 'In Progress' || p.statusPullingCableCoax === 'In Progress' || p.statusConstruction === 'Pulling Cable'
+    (p) =>
+      p.statusConstruction === 'Pulling Cable' ||
+      p.statusPullingCableFo === 'In Progress' ||
+      p.statusPullingCableFo === 'Done' ||
+      p.statusPullingCableCoax === 'In Progress' ||
+      p.statusPullingCableCoax === 'Done' ||
+      (Boolean(p.pullingCableProgress) && p.pullingCableProgress !== '0%' && p.pullingCableProgress !== 'N/A') ||
+      (Boolean(p.pullingCableFoProgress) && p.pullingCableFoProgress !== '0%' && p.pullingCableFoProgress !== 'N/A') ||
+      Number(p.pullingFoPanjangSelesai || 0) > 0 ||
+      Number(p.pullingPanjangSelesai || 0) > 0
   ).length;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
       {/* 1. Total Project */}
       <div 
         onClick={() => onQuickFilter('all', '')}
@@ -65,7 +91,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({ projects, onQuickFilter, act
         </div>
       </div>
 
-      {/* 2. Total Relokasi (Sebelah Total Project) */}
+      {/* 2. Total Relokasi FO */}
       <div 
         onClick={() => onQuickFilter('panjangRelokasi', 'Has Length')}
         className={`group bg-white rounded-xl p-3.5 border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between h-[84px] ${
@@ -75,7 +101,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({ projects, onQuickFilter, act
         }`}
       >
         <div className="flex items-center justify-between text-slate-500">
-          <span className="text-[11px] font-semibold tracking-wide uppercase text-slate-500">Total Relokasi</span>
+          <span className="text-[11px] font-semibold tracking-wide uppercase text-slate-500">Relokasi FO</span>
           <div className="w-6 h-6 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
             <Ruler className="w-3.5 h-3.5" />
           </div>
@@ -88,11 +114,34 @@ export const StatsBar: React.FC<StatsBarProps> = ({ projects, onQuickFilter, act
         </div>
       </div>
 
+      {/* 3. Total Relokasi COAX */}
+      <div 
+        onClick={() => onQuickFilter('panjangRelokasiCoax', 'Relokasi COAX')}
+        className={`group bg-white rounded-xl p-3.5 border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between h-[84px] ${
+          activeFilterValue === 'Relokasi COAX' || activeFilterValue === 'Has Coax Length' 
+            ? 'border-cyan-500 ring-2 ring-cyan-500/20 shadow-xs bg-gradient-to-b from-cyan-50/50 to-white' 
+            : 'border-slate-200/90 hover:border-cyan-300'
+        }`}
+      >
+        <div className="flex items-center justify-between text-slate-500">
+          <span className="text-[11px] font-semibold tracking-wide uppercase text-slate-500">Relokasi COAX</span>
+          <div className="w-6 h-6 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white transition-colors">
+            <Cable className="w-3.5 h-3.5" />
+          </div>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-lg font-bold font-mono tabular-nums text-slate-900 tracking-tight">
+            {totalLengthCoaxMeters.toLocaleString('id-ID')}
+          </span>
+          <span className="text-[11px] font-medium text-slate-400">meter COAX</span>
+        </div>
+      </div>
+
       {/* 3. Review Dinas */}
       <div 
-        onClick={() => onQuickFilter('projectStatus', 'Masih Review Dinas')}
+        onClick={() => onQuickFilter('projectStatus', 'Review Dinas')}
         className={`group bg-white rounded-xl p-3.5 border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between h-[84px] ${
-          activeFilterValue === 'Masih Review Dinas' 
+          activeFilterValue === 'Review Dinas' || activeFilterValue === 'Masih Review Dinas'
             ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-xs bg-gradient-to-b from-amber-50/50 to-white' 
             : 'border-slate-200/90 hover:border-amber-300'
         }`}
@@ -130,11 +179,11 @@ export const StatsBar: React.FC<StatsBarProps> = ({ projects, onQuickFilter, act
         </div>
       </div>
 
-      {/* 5. PO / MR Released */}
+      {/* 5. MR / PO Approved */}
       <div 
-        onClick={() => onQuickFilter('statusPengajuanMr', 'PO Released')}
+        onClick={() => onQuickFilter('statusPengajuanProject', 'MR/PO Approved')}
         className={`group bg-white rounded-xl p-3.5 border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between h-[84px] ${
-          activeFilterValue === 'PO Released' 
+          activeFilterValue === 'MR/PO Approved' || activeFilterValue === 'PO Released'
             ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs bg-gradient-to-b from-indigo-50/50 to-white' 
             : 'border-slate-200/90 hover:border-indigo-300'
         }`}
@@ -146,8 +195,8 @@ export const StatsBar: React.FC<StatsBarProps> = ({ projects, onQuickFilter, act
           </div>
         </div>
         <div className="flex items-baseline justify-between">
-          <span className="text-xl font-bold font-mono tabular-nums text-indigo-600 tracking-tight">{poReleasedCount}</span>
-          <span className="text-[11px] font-medium text-indigo-600/80">disetujui</span>
+          <span className="text-xl font-bold font-mono tabular-nums text-indigo-600 tracking-tight">{mrPoApprovedCount}</span>
+          <span className="text-[11px] font-medium text-indigo-600/80">approved / release</span>
         </div>
       </div>
 

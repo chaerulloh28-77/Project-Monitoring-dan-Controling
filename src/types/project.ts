@@ -2,6 +2,25 @@
  * Definition of Project Data and Tab Column Configurations
  */
 
+export interface HhItem {
+  id: string;
+  type: string; // HH, HB, MH
+  size: string; // 80x80, 90x90, 100x100, 110x110, 120x120
+  qty: number | string;
+}
+
+export interface PoleItem {
+  id: string;
+  type: string; // Tiang 7, Tiang 8, Tiang 9
+  qty: number | string;
+}
+
+export interface GalvanisItem {
+  id: string;
+  size: string; // 2", 4", 6"
+  length: number | string; // Meter
+}
+
 export interface ProjectData {
   id: string; // Internal unique identifier
   no: number;
@@ -22,7 +41,8 @@ export interface ProjectData {
   dateSuratPerintahRelokasi: string; // "Date Surat Perintah Relokasi", e.g. 2026-07-18
   bulan: string; // "Bulan", e.g. November, Januari
   tahun: string; // "Tahun", e.g. 2023, 2024
-  panjangRelokasi: number | string; // "Panjang Relokasi", e.g. 10000, 8500, 2600
+  panjangRelokasi: number | string; // "Panjang Relokasi FO", e.g. 10000, 8500, 2600
+  panjangRelokasiCoax?: number | string; // "Panjang Relokasi COAX", e.g. 3500, 1200
   apdRelokasi: string; // "APD Relokasi", e.g. Belum, Sudah
   kmzRelokasi: string; // "KMZ Relokasi", e.g. Belum, Sudah
   statusAudit: string; // "Status Audit", e.g. Belum, Belum di Audit, Sudah Audit
@@ -84,10 +104,13 @@ export interface ProjectData {
   installHhType?: string; // HH, HB, MH
   installHhSize?: string; // 80x80, 90x90, 100x100, 110x110, 120x120
   installHhQty?: number | string; // Unit
-  installPoleType?: string; // Tiang 8, Tiang 9
+  installHhItems?: HhItem[]; // Multiple HH, HB, MH items
+  installPoleType?: string; // Tiang 7, Tiang 8, Tiang 9
   installPoleQty?: number | string; // Ea
+  installPoleItems?: PoleItem[]; // Multiple Pole items
   installGalvanisSize?: string; // 2", 4", 6"
   installGalvanisLength?: number | string; // Meter
+  installGalvanisItems?: GalvanisItem[]; // Multiple Galvanis items
   installPoleProgress: string; // "Install Pole Progress"
   galianPanjangSelesai?: number | string; // Meter galian selesai
   galianPanjangTotal?: number | string; // Total meter target galian
