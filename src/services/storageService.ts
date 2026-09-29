@@ -1,3 +1,14 @@
+import { 
+  collection, 
+  doc, 
+  getDocs, 
+  setDoc, 
+  deleteDoc, 
+  writeBatch, 
+  onSnapshot, 
+  Unsubscribe 
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from './firebase';
 import { ProjectData } from '../types/project';
 import { INITIAL_PROJECTS } from '../data/initialData';
 import { calculatePullingFoPercentage, calculatePullingCoaxPercentage } from '../data/dropdownOptions';
@@ -15,157 +26,239 @@ import {
   getScopeInfo 
 } from '../utils/jaboScope';
 
-const STORAGE_KEY = 'PMO_PROJECTS_DATA_V8';
+const COLLECTION_NAME = 'projects';
 
-// Stale legacy keys that previously bloated localStorage
-const STALE_STORAGE_KEYS = [
-  'PMO_PROJECTS_DATA_V7',
-  'PMO_PROJECTS_DATA',
-  'PMO_PROJECTS_BACKUPS_V6',
-  'PMO_PROJECTS_BACKUPS_V5',
-  'PMO_PROJECTS_DATA_V6',
-  'PMO_PROJECTS_DATA_V5',
-  'PMO_PROJECTS_DATA_V4',
-  'PMO_PROJECTS_DATA_V3',
-  'PMO_PROJECTS_DATA_V2',
-  'PMO_CRASH_GUARD_FLAG',
-];
+/**
+ * Helper to remove `undefined` fields which Firestore rejects
+ */
+function sanitizeForFirestore(data: Partial<ProjectData>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Normalizes project properties for display and calculations
+ */
+function normalizeProject(p: ProjectData, idx: number): ProjectData {
+  let cat = p.projectCategory;
+  if (cat === 'GOV Apjatel') cat = 'GOV APJATEL';
+  if (cat === 'GOV Bina Marga' || cat === 'B2B Commercial' || cat === 'FTTH Relocation') {
+    cat = 'GOV SJUT';
+  }
+
+  let pic = p.picSectionHead;
+  if (pic === 'Chaerulloh' || !pic) {
+    pic = 'Chaerul';
+  }
+  if (pic === 'Budi Santoso') {
+    pic = 'Aris';
+  }
+
+  let zona = p.zona;
+  if (zona === 'Jobo 3' || zona === 'Jabo 3 / Jobo 3') {
+    zona = 'Jabo 3';
+  }
+
+  const cleanPmoId = p.pmoId ? p.pmoId.replace(/\s+(GOV.*)$/i, '').trim() : '';
+
+  const foProgress = p.pullingCableFoProgress || calculatePullingFoPercentage(
+    p.statusPullingCableFo || 'Not Yet',
+    p.pullingPanjangSelesai,
+    p.pullingPanjangTotal || p.panjangRelokasi,
+    p.statusConstruction
+  );
+
+  let coaxProgress = p.pullingCableCoaxProgress;
+  if (!coaxProgress || coaxProgress === 'N/A' || p.statusPullingCableCoax === 'No COAX') {
+    coaxProgress = calculatePullingCoaxPercentage(
+      p.statusPullingCableCoax || 'Not Yet',
+      p.pullingCoaxPanjangSelesai || p.pullingPanjangSelesai,
+      p.pullingCoaxPanjangTotal || p.pullingPanjangTotal || p.panjangRelokasi,
+      p.statusConstruction
+    );
+  }
+
+  let vendor = (p.namaVendor || '').trim().toUpperCase();
+  if (vendor.includes('MENTARI (RESIGN)') || vendor.includes('MENTARI ( RESIGN )')) {
+    vendor = 'PT.MENTARI';
+  }
+
+  return {
+    ...p,
+    no: Number(p.no) || idx + 1,
+    namaVendor: vendor,
+    pmoId: cleanPmoId || p.pmoId,
+    projectCategory: cat || 'GOV IPPJU',
+    picSectionHead: pic,
+    zona: zona || 'Jabo 1',
+    pullingCableFoProgress: foProgress,
+    pullingCableCoaxProgress: coaxProgress,
+  };
+}
 
 export const storageService = {
-  // Purge any old bloated keys to ensure localStorage has zero quota errors
-  purgeStaleStorage(): void {
+  /**
+   * Load all projects from Cloud Firestore.
+   * If Firestore collection is empty on first boot, seeds the 387 initial projects into Firestore.
+   */
+  async loadProjects(): Promise<ProjectData[]> {
     try {
-      for (const key of STALE_STORAGE_KEYS) {
-        localStorage.removeItem(key);
+      const colRef = collection(db, COLLECTION_NAME);
+      const snapshot = await getDocs(colRef);
+
+      if (snapshot.empty) {
+        console.log('Firestore collection is empty. Seeding initial 387 projects...');
+        const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+        await this.saveProjects(initial);
+        return initial.map(normalizeProject);
       }
-    } catch (e) {
-      console.warn('Failed to purge stale storage keys:', e);
+
+      const projects: ProjectData[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as ProjectData;
+        projects.push({ ...data, id: docSnap.id });
+      });
+
+      projects.sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+      return projects.map(normalizeProject);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, COLLECTION_NAME);
     }
   },
 
-  // Load projects from localStorage (loads clean 387 initial projects on fresh load)
-  loadProjects(): ProjectData[] {
-    this.purgeStaleStorage();
+  /**
+   * Real-time listener for Firestore projects collection using onSnapshot.
+   * Enables seamless multi-user collaboration and live updates across dashboards.
+   */
+  subscribeProjects(
+    onData: (projects: ProjectData[]) => void,
+    onError?: (error: unknown) => void
+  ): Unsubscribe {
+    const colRef = collection(db, COLLECTION_NAME);
 
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw === null) {
-        // Load clean initial 387 projects
-        const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
-        this.saveProjects(initial);
-        return initial;
-      }
-
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        if (parsed.length === 0) {
-          return [];
-        }
-
-        // Normalize categories, PICs, clean PMO IDs, and ensure data integrity
-        const normalized = parsed.map((p: ProjectData, idx: number) => {
-          let cat = p.projectCategory;
-          if (cat === 'GOV Apjatel') cat = 'GOV APJATEL';
-          if (cat === 'GOV Bina Marga' || cat === 'B2B Commercial' || cat === 'FTTH Relocation') {
-            cat = 'GOV SJUT';
-          }
-
-          let pic = p.picSectionHead;
-          if (pic === 'Chaerulloh' || !pic) {
-            pic = 'Chaerul';
-          }
-          if (pic === 'Budi Santoso') {
-            pic = 'Aris';
-          }
-
-          let zona = p.zona;
-          if (zona === 'Jobo 3' || zona === 'Jabo 3 / Jobo 3') {
-            zona = 'Jabo 3';
-          }
-
-          // Ensure PMO-ID is clean (remove any trailing GOV, IPPJU, GOV Apjatel, GOV SJUT)
-          const cleanPmoId = p.pmoId ? p.pmoId.replace(/\s+(GOV.*)$/i, '').trim() : '';
-
-          const foProgress = p.pullingCableFoProgress || calculatePullingFoPercentage(
-            p.statusPullingCableFo || 'Not Yet',
-            p.pullingPanjangSelesai,
-            p.pullingPanjangTotal || p.panjangRelokasi,
-            p.statusConstruction
-          );
-
-          let coaxProgress = p.pullingCableCoaxProgress;
-          if (!coaxProgress || coaxProgress === 'N/A' || p.statusPullingCableCoax === 'No COAX') {
-            coaxProgress = calculatePullingCoaxPercentage(
-              p.statusPullingCableCoax || 'Not Yet',
-              p.pullingCoaxPanjangSelesai || p.pullingPanjangSelesai,
-              p.pullingCoaxPanjangTotal || p.pullingPanjangTotal || p.panjangRelokasi,
-              p.statusConstruction
-            );
-          }
-
-          let vendor = (p.namaVendor || '').trim().toUpperCase();
-          if (vendor.includes('MENTARI (RESIGN)') || vendor.includes('MENTARI ( RESIGN )')) {
-            vendor = 'PT.MENTARI';
-          }
-
-          return {
-            ...p,
-            no: idx + 1,
-            namaVendor: vendor,
-            pmoId: cleanPmoId || p.pmoId,
-            projectCategory: cat || 'GOV IPPJU',
-            picSectionHead: pic,
-            zona: zona || 'Jabo 1',
-            pullingCableFoProgress: foProgress,
-            pullingCableCoaxProgress: coaxProgress,
-          };
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        const projects: ProjectData[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as ProjectData;
+          projects.push({ ...data, id: docSnap.id });
         });
 
-        normalized.sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
-        return normalized;
+        projects.sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+        onData(projects.map(normalizeProject));
+      },
+      (error) => {
+        if (onError) {
+          onError(error);
+        }
+        handleFirestoreError(error, OperationType.GET, COLLECTION_NAME);
       }
-
-      const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
-      this.saveProjects(initial);
-      return initial;
-    } catch (err) {
-      console.error('Failed to load projects from localStorage:', err);
-      return INITIAL_PROJECTS;
-    }
+    );
   },
 
-  // Save data to localStorage with zero quota bloat
-  saveProjects(projects: ProjectData[]): { success: boolean; timestamp: string } {
+  /**
+   * Save or update a single project in Cloud Firestore
+   */
+  async saveProject(project: ProjectData): Promise<{ success: boolean; timestamp: string }> {
     const timestamp = new Date().toISOString();
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+      const docRef = doc(db, COLLECTION_NAME, project.id);
+      const sanitized = sanitizeForFirestore({
+        ...project,
+        updatedAt: timestamp,
+      });
+      await setDoc(docRef, sanitized, { merge: true });
       return { success: true, timestamp };
-    } catch (err) {
-      console.error('Storage save error, purging stale data and retrying...', err);
-      try {
-        this.purgeStaleStorage();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-        return { success: true, timestamp };
-      } catch (retryErr) {
-        console.error('Storage retry failed:', retryErr);
-        return { success: false, timestamp };
-      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${COLLECTION_NAME}/${project.id}`);
     }
   },
 
-  // Clear all projects completely (0 items)
-  clearAllProjects(): ProjectData[] {
-    this.purgeStaleStorage();
-    this.saveProjects([]);
-    return [];
+  /**
+   * Batch save / update multiple projects in Cloud Firestore (chunks of 400 for batch limits)
+   */
+  async saveProjects(projects: ProjectData[]): Promise<{ success: boolean; timestamp: string }> {
+    const timestamp = new Date().toISOString();
+    try {
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < projects.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const slice = projects.slice(i, i + BATCH_SIZE);
+        for (const p of slice) {
+          const docRef = doc(db, COLLECTION_NAME, p.id);
+          const sanitized = sanitizeForFirestore({
+            ...p,
+            updatedAt: timestamp,
+          });
+          batch.set(docRef, sanitized, { merge: true });
+        }
+        await batch.commit();
+      }
+      return { success: true, timestamp };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, COLLECTION_NAME);
+    }
   },
 
-  // Restore 387 initial default projects
-  restoreDefaultProjects(): ProjectData[] {
-    this.purgeStaleStorage();
-    const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
-    this.saveProjects(initial);
-    return initial;
+  /**
+   * Delete a single project from Cloud Firestore
+   */
+  async deleteProject(projectId: string): Promise<{ success: boolean; timestamp: string }> {
+    const timestamp = new Date().toISOString();
+    try {
+      const docRef = doc(db, COLLECTION_NAME, projectId);
+      await deleteDoc(docRef);
+      return { success: true, timestamp };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${projectId}`);
+    }
+  },
+
+  /**
+   * Clear all projects from Cloud Firestore
+   */
+  async clearAllProjects(): Promise<{ success: boolean; timestamp: string }> {
+    const timestamp = new Date().toISOString();
+    try {
+      const colRef = collection(db, COLLECTION_NAME);
+      const snapshot = await getDocs(colRef);
+      
+      const BATCH_SIZE = 400;
+      const docs = snapshot.docs;
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const slice = docs.slice(i, i + BATCH_SIZE);
+        for (const docSnap of slice) {
+          batch.delete(docSnap.ref);
+        }
+        await batch.commit();
+      }
+      return { success: true, timestamp };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, COLLECTION_NAME);
+    }
+  },
+
+  /**
+   * Restore initial 387 projects into Cloud Firestore
+   */
+  async restoreDefaultProjects(): Promise<ProjectData[]> {
+    try {
+      // First clean current collection
+      await this.clearAllProjects();
+      
+      const initial = [...INITIAL_PROJECTS].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+      await this.saveProjects(initial);
+      return initial.map(normalizeProject);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, COLLECTION_NAME);
+    }
   },
 
   // Export current data to Excel-ready CSV (with optional Jabo Scope filter)
@@ -308,10 +401,9 @@ export const storageService = {
       escapeCsv(p.pullingCableProgress),
       escapeCsv(p.projectSapId),
       escapeCsv(p.remarksConstruction),
-    ].join(','));
+    ]);
 
-    const digitalSeal = securityGuard.generateExportSeal();
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows, `"# [SECURITY_AUDIT] Hak Cipta Dilindungi © PAUL | Scope: ${scopeInfo.label} | ${digitalSeal}"`].join('\r\n');
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -323,16 +415,13 @@ export const storageService = {
     URL.revokeObjectURL(url);
   },
 
-  // Export 1 Excel File consisting of 4 distinct sheets as requested:
-  // 1. Project list
-  // 2. Construction & Plan
-  // 3. Status Project
-  // 4. Status Construction
-  // Option: Semua Report (Semua Zona) or per Jabo 1 (Central/West), Jabo 2 (South/Banten/PIC Aris/Chaerul), Jabo 3 (NE/Bekasi/Karawang)
-  exportToMultiSheetExcel(
-    projects: ProjectData[], 
-    zonaFilter?: JaboExportScope | string
-  ): { success: boolean; count: number; filename: string; label: string } {
+  // Export current data to real Multi-Sheet Excel Workbook (.xlsx) with 4 synchronized sheets
+  exportToMultiSheetExcel(projects: ProjectData[], zonaFilter?: JaboExportScope | string): {
+    success: boolean;
+    count: number;
+    filename: string;
+    label: string;
+  } {
     if (!projects || projects.length === 0) {
       return { success: false, count: 0, filename: '', label: '' };
     }
@@ -347,7 +436,7 @@ export const storageService = {
 
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1: Project list
+    // Sheet 1: Project List
     const ws1Headers = PROJECT_LIST_COLUMNS.map((col) => col.label);
     const ws1Rows = targetProjects.map((p, idx) =>
       PROJECT_LIST_COLUMNS.map((col) => {
@@ -358,9 +447,9 @@ export const storageService = {
     );
     const ws1 = XLSX.utils.aoa_to_sheet([ws1Headers, ...ws1Rows]);
     ws1['!cols'] = PROJECT_LIST_COLUMNS.map((col) => ({
-      wch: Math.max(col.label.length + 3, 14),
+      wch: Math.max(col.label.length + 3, 12),
     }));
-    XLSX.utils.book_append_sheet(wb, ws1, 'Project list');
+    XLSX.utils.book_append_sheet(wb, ws1, 'Project List');
 
     // Sheet 2: Construction & Plan
     const ws2Headers = CONSTRUCTION_PLAN_COLUMNS.map((col) => col.label);
@@ -409,7 +498,6 @@ export const storageService = {
 
     const filename = `Project_Monitoring_Report_${scopeInfo.filenameKey}_4_Sheets_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-    // Set workbook metadata & digital security seal
     wb.Props = {
       Title: `Project Monitoring dan Controling Report - ${scopeInfo.label}`,
       Subject: `Multi-Sheet Project Management Master Report (${scopeInfo.tag} - ${targetProjects.length} Proyek)`,
@@ -419,7 +507,6 @@ export const storageService = {
       CreatedDate: new Date(),
     };
 
-    // Generate binary buffer and download .xlsx
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

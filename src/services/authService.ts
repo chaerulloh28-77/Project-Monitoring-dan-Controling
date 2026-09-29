@@ -1,7 +1,7 @@
 /**
  * Authentication service for Project Monitoring dan Controling
  * Credentials:
- *   Email: Alamat email pribadi (e.g. chaerulloh28@gmail.com)
+ *   Email: Alamat email pengguna
  *   Password: gov123
  */
 

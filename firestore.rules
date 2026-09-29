@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default-deny all undefined paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidProject(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.pmoId is string && data.pmoId.size() <= 128 &&
+             data.projectCategory is string && data.projectCategory.size() <= 100 &&
+             data.zona is string && data.zona.size() <= 50 &&
+             data.projectStatus is string && data.projectStatus.size() <= 100 &&
+             (!('projectDescription' in data) || (data.projectDescription is string && data.projectDescription.size() <= 500)) &&
+             (!('remarksPlan' in data) || (data.remarksPlan is string && data.remarksPlan.size() <= 1000)) &&
+             (!('remarksConstruction' in data) || (data.remarksConstruction is string && data.remarksConstruction.size() <= 1000));
+    }
+
+    // Projects collection for master project monitoring and tracking
+    match /projects/{projectId} {
+      allow get, list: if true;
+      allow create: if isValidId(projectId) && isValidProject(incoming());
+      allow update: if isValidId(projectId) && isValidProject(incoming());
+      allow delete: if isValidId(projectId);
+    }
+  }
+}

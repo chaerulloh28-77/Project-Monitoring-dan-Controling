@@ -105,7 +105,7 @@ export default function App() {
     }, 2800);
   }, []);
 
-  // 1. Initial Load from LocalStorage & Security Initialization
+  // 1. Initial Load & Real-Time Subscription with Cloud Firestore
   useEffect(() => {
     // Initialize anti-cloning and security guard system
     securityGuard.init();
@@ -115,22 +115,43 @@ export default function App() {
       }
     });
 
-    const loaded = storageService.loadProjects();
-    setProjects(loaded);
-    setLastSavedTime(new Date().toISOString());
+    // Initial load / seed check from Firestore
+    storageService.loadProjects().then((loaded) => {
+      if (loaded && loaded.length > 0) {
+        setProjects(loaded);
+        setLastSavedTime(new Date().toISOString());
+      }
+    }).catch((err) => {
+      console.error('Firestore initial load error:', err);
+    });
+
+    // Real-time synchronization: onSnapshot listener across all users and devices
+    const unsubscribeFirestore = storageService.subscribeProjects(
+      (latestProjects) => {
+        setProjects(latestProjects);
+        setLastSavedTime(new Date().toISOString());
+      },
+      (error) => {
+        console.error('Firestore real-time subscription error:', error);
+      }
+    );
 
     return () => {
       unsubscribeSecurity();
+      unsubscribeFirestore();
     };
   }, [showToast]);
 
-  // 2. Auto-save whenever projects state updates
+  // 2. Persist state updates to Firestore
   const persistChanges = useCallback((updatedProjects: ProjectData[]) => {
     setProjects(updatedProjects);
-    const result = storageService.saveProjects(updatedProjects);
-    if (result.success) {
-      setLastSavedTime(result.timestamp);
-    }
+    storageService.saveProjects(updatedProjects).then((result) => {
+      if (result && result.success) {
+        setLastSavedTime(result.timestamp);
+      }
+    }).catch((err) => {
+      console.error('Firestore batch persist error:', err);
+    });
   }, []);
 
   // Filter projects based on active filters
@@ -256,57 +277,87 @@ export default function App() {
     };
   }, [filteredProjects]);
 
-  // Handler: Add / Update Project (CRUD: Create & Edit)
-  const handleSaveProject = (data: ProjectData) => {
+  // Handler: Add / Update Project (CRUD: Create & Edit directly in Cloud Firestore)
+  const handleSaveProject = async (data: ProjectData) => {
     const isEdit = projects.some((p) => p.id === data.id);
     let updated: ProjectData[];
 
     if (isEdit) {
       updated = projects.map((p) => (p.id === data.id ? data : p)).sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
-      persistChanges(updated);
-      showToast(`Project ${data.pmoId} berhasil disimpan otomatis.`);
+      setProjects(updated);
+      showToast(`Project ${data.pmoId} berhasil disimpan ke Firestore.`);
     } else {
       updated = [...projects, data].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
-      persistChanges(updated);
-      showToast(`Project baru ${data.pmoId} berhasil ditambahkan dan disimpan.`);
+      setProjects(updated);
+      showToast(`Project baru ${data.pmoId} berhasil ditambahkan ke Firestore.`);
     }
 
     if (detailProject && detailProject.id === data.id) {
       setDetailProject(data);
     }
+
+    try {
+      const res = await storageService.saveProject(data);
+      if (res && res.timestamp) {
+        setLastSavedTime(res.timestamp);
+      }
+    } catch (err) {
+      console.error('Error saving project to Firestore:', err);
+      showToast('Gagal menyimpan project ke Firestore.');
+    }
   };
 
-  // Handler: Delete Single Project
-  const handleDeleteProject = (target: ProjectData) => {
+  // Handler: Delete Single Project from Cloud Firestore
+  const handleDeleteProject = async (target: ProjectData) => {
     const updated = projects.filter((p) => p.id !== target.id);
-    persistChanges(updated);
-    showToast(`Project ${target.pmoId} berhasil dihapus dari semua sheet.`);
+    setProjects(updated);
+    showToast(`Project ${target.pmoId} berhasil dihapus dari Firestore.`);
     
     if (detailProject && detailProject.id === target.id) {
       setIsDetailDrawerOpen(false);
       setDetailProject(null);
     }
+
+    try {
+      await storageService.deleteProject(target.id);
+    } catch (err) {
+      console.error('Error deleting project from Firestore:', err);
+      showToast('Gagal menghapus project dari Firestore.');
+    }
   };
 
-  // Handler: Hapus Semua Data Project List (0 projects)
-  const handleClearAllProjects = () => {
-    const empty = storageService.clearAllProjects();
-    setProjects(empty);
+  // Handler: Hapus Semua Data Project List di Cloud Firestore (0 projects)
+  const handleClearAllProjects = async () => {
+    setProjects([]);
     setLastSavedTime(new Date().toISOString());
     setIsClearAllModalOpen(false);
-    showToast('Seluruh data project list berhasil dihapus.');
+    showToast('Seluruh data project di Firestore berhasil dikosongkan.');
+
+    try {
+      await storageService.clearAllProjects();
+    } catch (err) {
+      console.error('Error clearing Firestore collection:', err);
+      showToast('Gagal mengosongkan koleksi di Firestore.');
+    }
   };
 
-  // Handler: Muat Ulang 387 Data Project Awal
-  const handleRestoreDefaultProjects = () => {
-    const restored = storageService.restoreDefaultProjects();
-    setProjects(restored);
-    setLastSavedTime(new Date().toISOString());
-    showToast('387 data project awal berhasil dimuat ulang.');
+  // Handler: Muat Ulang 387 Data Project Awal ke Cloud Firestore
+  const handleRestoreDefaultProjects = async () => {
+    showToast('Memuat ulang 387 data project awal ke Firestore...');
+    try {
+      const restored = await storageService.restoreDefaultProjects();
+      setProjects(restored);
+      setLastSavedTime(new Date().toISOString());
+      showToast('387 data project awal berhasil dimuat ulang ke Firestore.');
+    } catch (err) {
+      console.error('Error restoring defaults to Firestore:', err);
+      showToast('Gagal memuat ulang data ke Firestore.');
+    }
   };
 
-  // Handler: Inline cell quick update
+  // Handler: Inline cell quick update (single document Firestore sync)
   const handleQuickUpdateCell = (projectId: string, field: keyof ProjectData, value: string) => {
+    let modifiedRow: ProjectData | null = null;
     const updated = projects.map((p) => {
       if (p.id === projectId) {
         const item: ProjectData = {
@@ -380,12 +431,20 @@ export default function App() {
           }
         }
 
+        modifiedRow = item;
         return item;
       }
       return p;
     });
-    persistChanges(updated);
-    showToast(`Perubahan sel disimpan otomatis.`);
+
+    setProjects(updated);
+    showToast(`Perubahan sel tersimpan.`);
+
+    if (modifiedRow) {
+      storageService.saveProject(modifiedRow).catch((err) => {
+        console.error('Failed to sync cell update to Firestore:', err);
+      });
+    }
   };
 
   // Handler: Quick jumping across tabs for a project

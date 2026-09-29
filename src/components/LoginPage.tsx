@@ -6,7 +6,6 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight, 
-  CheckCircle2, 
   AlertCircle 
 } from 'lucide-react';
 import { authService, AuthUser } from '../services/authService';
@@ -39,12 +38,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       setIsLoading(false);
       setError(result.message || 'Login gagal, periksa email dan password Anda.');
     }
-  };
-
-  const handleUseDefaultEmail = () => {
-    setEmail('chaerulloh28@gmail.com');
-    setPassword('gov123');
-    setError(null);
   };
 
   return (
@@ -135,18 +128,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </div>
-
-            {/* Quick Fill Helper */}
-            <div className="pt-1 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleUseDefaultEmail}
-                className="text-[11px] text-sky-400 hover:text-sky-300 hover:underline cursor-pointer transition-colors flex items-center gap-1"
-              >
-                <CheckCircle2 className="w-3 h-3 text-sky-400" />
-                Gunakan Akun Utama
-              </button>
             </div>
 
             {/* Submit Button */}

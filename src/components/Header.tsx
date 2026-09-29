@@ -121,8 +121,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="font-semibold text-slate-200">{totalProjects}</span> Project Terdata
                 </p>
                 <span className="text-slate-600 text-xs hidden sm:inline">•</span>
-                <p className="text-xs text-slate-400 hidden sm:inline">
-                  Multi-Sheet Synchronized
+                <p className="text-xs text-emerald-400 font-medium hidden sm:inline flex items-center gap-1">
+                  Cloud Firestore Real-Time
                 </p>
               </div>
             </div>
@@ -130,9 +130,9 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right: Actions & Status */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {/* Auto-save status badge */}
+            {/* Cloud Firestore Live Sync status badge */}
             <div 
-              title="Sistem menyimpan otomatis setiap perubahan data."
+              title="Sistem menyimpan dan menyinkronkan otomatis setiap perubahan data dengan Cloud Firestore."
               className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-xs"
             >
               <span className="relative flex h-2 w-2">
@@ -140,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <span className="font-mono text-[11px] text-slate-300">
-                Tersimpan {lastSavedTime ? new Date(lastSavedTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Auto'}
+                Firestore {lastSavedTime ? new Date(lastSavedTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live'}
               </span>
             </div>
 
