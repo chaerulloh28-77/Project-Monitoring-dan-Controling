@@ -24,13 +24,20 @@ import {
   MapPin,
   Briefcase,
   SlidersHorizontal,
-  X
+  X,
+  Mail,
+  HardDrive,
+  Sparkles,
+  ExternalLink,
+  Image as ImageIcon
 } from 'lucide-react';
 import { ProjectData } from '../types/project';
 import { NAMA_VENDOR_OPTIONS } from '../data/dropdownOptions';
-import { DOCUMENT_SLOTS, DocumentSlotDefinition, UploadedFileMeta, DocumentTypeKey } from '../types/document';
+import { DOCUMENT_SLOTS, DocumentSlotDefinition, UploadedFileMeta, DocumentTypeKey, DocumentFormatType } from '../types/document';
 import { documentStorageService } from '../services/documentStorageService';
 import { ProjectDocumentDetailModal } from './ProjectDocumentDetailModal';
+import { EmailShareModal } from './EmailShareModal';
+import { GoogleDriveModal } from './GoogleDriveModal';
 
 interface UploadDocumentViewProps {
   projects: ProjectData[];
@@ -56,12 +63,26 @@ export const UploadDocumentView: React.FC<UploadDocumentViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
 
-  // Selected project for modal
+  // Selected project for modals
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+  // Email Share & Google Drive modal states
+  const [emailProject, setEmailProject] = useState<ProjectData | null>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [driveProject, setDriveProject] = useState<ProjectData | null>(null);
+  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+
+  // Quick Upload Banner state
+  const [isQuickUploadOpen, setIsQuickUploadOpen] = useState(false);
+  const [quickUploadProjectPmo, setQuickUploadProjectPmo] = useState('');
+  const [quickUploadSlotKey, setQuickUploadSlotKey] = useState<DocumentTypeKey>('mr');
+  const [quickUploadProgress, setQuickUploadProgress] = useState<{ pct: number; stage: string } | null>(null);
+  const quickFileInputRef = useRef<HTMLInputElement>(null);
+
   // Hidden file input for inline cell uploads
   const [cellTarget, setCellTarget] = useState<{ project: ProjectData; slotKey: DocumentTypeKey } | null>(null);
+  const [cellUploadProgress, setCellUploadProgress] = useState<{ pmoId: string; slotLabel: string; pct: number; stage: string } | null>(null);
   const cellFileInputRef = useRef<HTMLInputElement>(null);
 
   // Trigger re-render when a document is uploaded/deleted/edited
@@ -236,25 +257,88 @@ export const UploadDocumentView: React.FC<UploadDocumentViewProps> = ({
     const file = e.target.files?.[0];
     if (!file || !cellTarget) return;
 
-    const result = await documentStorageService.uploadDocument(
-      cellTarget.project,
-      cellTarget.slotKey,
-      file
-    );
+    const slotDef = DOCUMENT_SLOTS.find((s) => s.key === cellTarget.slotKey);
+    setCellUploadProgress({
+      pmoId: cellTarget.project.pmoId,
+      slotLabel: slotDef?.label || 'Dokumen',
+      pct: 15,
+      stage: 'Memverifikasi berkas...',
+    });
 
-    if (result.success) {
-      setRefreshKey((k) => k + 1);
-      if (showToast) {
-        const slotDef = DOCUMENT_SLOTS.find((s) => s.key === cellTarget.slotKey);
-        showToast(`Dokumen "${slotDef?.label}" berhasil diunggah.`);
+    try {
+      const result = await documentStorageService.uploadDocument(
+        cellTarget.project,
+        cellTarget.slotKey,
+        file,
+        (pct, stage) => {
+          setCellUploadProgress({
+            pmoId: cellTarget.project.pmoId,
+            slotLabel: slotDef?.label || 'Dokumen',
+            pct,
+            stage,
+          });
+        }
+      );
+
+      if (result.success) {
+        setRefreshKey((k) => k + 1);
+        if (showToast) {
+          showToast(`Dokumen "${slotDef?.label}" (${file.name}) berhasil diunggah.`);
+        }
+      } else {
+        if (showToast) {
+          showToast(result.error || 'Gagal mengunggah file.');
+        }
       }
-    } else {
-      if (showToast) {
-        showToast(result.error || 'Gagal mengunggah file.');
-      }
+    } catch {
+      if (showToast) showToast('Gagal memproses file dokumen.');
+    } finally {
+      setTimeout(() => {
+        setCellUploadProgress(null);
+      }, 1000);
+      setCellTarget(null);
+    }
+  };
+
+  const handleQuickUploadFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const targetProj = projects.find((p) => p.pmoId === quickUploadProjectPmo) || filteredData[0] || projects[0];
+    if (!targetProj) {
+      if (showToast) showToast('Pilih proyek terlebih dahulu.');
+      return;
     }
 
-    setCellTarget(null);
+    const slotDef = DOCUMENT_SLOTS.find((s) => s.key === quickUploadSlotKey);
+    setQuickUploadProgress({ pct: 15, stage: 'Membaca berkas...' });
+
+    try {
+      const result = await documentStorageService.uploadDocument(
+        targetProj,
+        quickUploadSlotKey,
+        file,
+        (pct, stage) => {
+          setQuickUploadProgress({ pct, stage });
+        }
+      );
+
+      if (result.success) {
+        setRefreshKey((k) => k + 1);
+        if (showToast) {
+          showToast(`Dokumen "${slotDef?.label}" (${file.name}) untuk ${targetProj.pmoId} berhasil diunggah!`);
+        }
+        setIsQuickUploadOpen(false);
+      } else {
+        if (showToast) showToast(result.error || 'Gagal mengunggah dokumen.');
+      }
+    } catch {
+      if (showToast) showToast('Terjadi kesalahan saat mengunggah file.');
+    } finally {
+      setTimeout(() => {
+        setQuickUploadProgress(null);
+      }, 1000);
+    }
   };
 
   const handleCellDownload = (meta: UploadedFileMeta, e: React.MouseEvent) => {
@@ -287,12 +371,14 @@ export const UploadDocumentView: React.FC<UploadDocumentViewProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(0)) + ' ' + sizes[i];
   };
 
-  const getSlotIcon = (type: 'pdf' | 'kmz' | 'excel') => {
+  const getSlotIcon = (type: DocumentFormatType) => {
     switch (type) {
       case 'kmz':
         return <FileCode className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
       case 'excel':
         return <FileSpreadsheet className="w-3.5 h-3.5 text-teal-600 shrink-0" />;
+      case 'image':
+        return <ImageIcon className="w-3.5 h-3.5 text-purple-600 shrink-0" />;
       case 'pdf':
       default:
         return <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
@@ -478,17 +564,155 @@ export const UploadDocumentView: React.FC<UploadDocumentViewProps> = ({
             </button>
           </div>
 
-          {/* Export Action */}
-          <button
-            type="button"
-            onClick={() => documentStorageService.exportDocumentChecklist(filteredData)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shrink-0 ml-auto"
-            title="Download status kelengkapan berkas seluruh proyek terfilter ke format CSV / Excel"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Export Checklist (CSV)</span>
-          </button>
+          {/* Action Buttons: Quick Upload, Email, Google Drive, Export */}
+          <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+            {/* 1. Quick Upload Button */}
+            <button
+              type="button"
+              onClick={() => setIsQuickUploadOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                isQuickUploadOpen
+                  ? 'bg-sky-700 text-white shadow-xs'
+                  : 'text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200'
+              }`}
+              title="Buka panel unggah berkas cepat (PDF, Gambar, Excel)"
+            >
+              <Upload className="w-3.5 h-3.5 text-sky-600" />
+              <span>Unggah Cepat</span>
+            </button>
+
+            {/* 2. Share via Email */}
+            <button
+              type="button"
+              onClick={() => {
+                const targetProj = filteredData[0] || projects[0] || null;
+                setEmailProject(targetProj);
+                setIsEmailModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer shrink-0"
+              title="Bagikan berkas proyek melalui Email resmi"
+            >
+              <Mail className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="hidden sm:inline">Share Email</span>
+            </button>
+
+            {/* 3. Google Drive Workspace */}
+            <button
+              type="button"
+              onClick={() => {
+                const targetProj = filteredData[0] || projects[0] || null;
+                setDriveProject(targetProj);
+                setIsDriveModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shrink-0"
+              title="Simpan, cadangkan, dan kelola folder Google Drive"
+            >
+              <HardDrive className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Google Drive</span>
+            </button>
+
+            {/* 4. Export Checklist (CSV) */}
+            <button
+              type="button"
+              onClick={() => documentStorageService.exportDocumentChecklist(filteredData)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer shrink-0"
+              title="Download status kelengkapan berkas seluruh proyek terfilter ke format CSV / Excel"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-600" />
+              <span>Export CSV</span>
+            </button>
+          </div>
         </div>
+
+        {/* Interactive Quick Upload Banner (Collapsible) */}
+        {isQuickUploadOpen && (
+          <div className="pt-3 border-t border-slate-200 bg-gradient-to-r from-sky-50/70 via-indigo-50/40 to-slate-50 p-4 rounded-xl space-y-3 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-sky-600" />
+                <span>Panel Unggah Cepat Dokumen (Mendukung PDF, Gambar, Excel)</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsQuickUploadOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Progress bar during quick upload */}
+            {quickUploadProgress && (
+              <div className="p-3 bg-white rounded-lg border border-sky-300 shadow-xs space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-sky-900">
+                  <span className="flex items-center gap-2">
+                    <div className="w-3.5 h-3.5 border-2 border-sky-600 border-t-transparent rounded-full animate-spin" />
+                    <span>{quickUploadProgress.stage}</span>
+                  </span>
+                  <span className="font-mono">{quickUploadProgress.pct}%</span>
+                </div>
+                <div className="w-full bg-sky-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-sky-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${quickUploadProgress.pct}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              {/* Select Project */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  1. Pilih Proyek PMO
+                </label>
+                <select
+                  value={quickUploadProjectPmo || (filteredData[0]?.pmoId || projects[0]?.pmoId || '')}
+                  onChange={(e) => setQuickUploadProjectPmo(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                >
+                  {(filteredData.length > 0 ? filteredData : projects).slice(0, 80).map((p) => (
+                    <option key={p.id} value={p.pmoId}>
+                      {p.pmoId} - {p.projectDescription}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Select Document Slot */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  2. Pilih Slot Dokumen
+                </label>
+                <select
+                  value={quickUploadSlotKey}
+                  onChange={(e) => setQuickUploadSlotKey(e.target.value as DocumentTypeKey)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
+                >
+                  {DOCUMENT_SLOTS.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.num}. {s.label} ({s.formatBadge})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Browse File Dropzone */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  3. Pilih Berkas (PDF, Gambar, Excel)
+                </label>
+                <input
+                  type="file"
+                  ref={quickFileInputRef}
+                  onChange={handleQuickUploadFileSelected}
+                  accept=".pdf,image/*,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.kmz"
+                  className="w-full px-2.5 py-1.5 border border-dashed border-sky-400 rounded-lg bg-white text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Lower Row: Specific Dropdown Filters (Semua Zona, Semua Area, Semua Vendor, Semua PIC, Jenis Dokumen) */}
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
@@ -766,17 +990,43 @@ export const UploadDocumentView: React.FC<UploadDocumentViewProps> = ({
                         )}
                       </td>
 
-                      {/* Col 6: Aksi CRUD Lengkap (Kelola) */}
-                      <td className="px-3 py-2 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDetailModal(project)}
-                          className="px-2.5 py-1.5 text-xs font-semibold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 mx-auto shadow-2xs hover:shadow-xs"
-                          title="Buka panel kelola berkas: Tambah, Lihat, Edit Catatan, Ganti File, dan Hapus"
-                        >
-                          <FolderOpen className="w-3.5 h-3.5 text-cyan-700" />
-                          <span>Kelola</span>
-                        </button>
+                      {/* Col 6: Aksi (Kelola, Email, Drive) */}
+                      <td className="px-2.5 py-2 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDetailModal(project)}
+                            className="px-2.5 py-1 text-xs font-semibold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs hover:shadow-xs"
+                            title="Buka panel kelola berkas: Tambah, Lihat, Edit Catatan, dan Hapus"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-cyan-700" />
+                            <span>Kelola</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEmailProject(project);
+                              setIsEmailModalOpen(true);
+                            }}
+                            className="p-1.5 text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
+                            title="Share ringkasan berkas proyek ini via Email"
+                          >
+                            <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDriveProject(project);
+                              setIsDriveModalOpen(true);
+                            }}
+                            className="p-1.5 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
+                            title="Simpan & Buka Google Drive untuk proyek ini"
+                          >
+                            <HardDrive className="w-3.5 h-3.5 text-emerald-600" />
+                          </button>
+                        </div>
                       </td>
 
                       {/* 13 Document Slot Cells (CRUD In-Cell) */}
@@ -919,6 +1169,47 @@ export const UploadDocumentView: React.FC<UploadDocumentViewProps> = ({
         onDocumentChange={() => setRefreshKey((k) => k + 1)}
         showToast={showToast}
       />
+
+      {/* Email Share Modal */}
+      <EmailShareModal
+        isOpen={isEmailModalOpen}
+        project={emailProject}
+        onClose={() => {
+          setIsEmailModalOpen(false);
+          setEmailProject(null);
+        }}
+        showToast={showToast}
+      />
+
+      {/* Google Drive Modal */}
+      <GoogleDriveModal
+        isOpen={isDriveModalOpen}
+        project={driveProject}
+        onClose={() => {
+          setIsDriveModalOpen(false);
+          setDriveProject(null);
+        }}
+        onDriveUpdated={() => setRefreshKey((k) => k + 1)}
+        showToast={showToast}
+      />
+
+      {/* Floating In-Cell Upload Progress Indicator */}
+      {cellUploadProgress && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 backdrop-blur-md text-white p-3.5 px-4 rounded-2xl shadow-2xl border border-sky-500/40 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200">
+          <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin shrink-0" />
+          <div className="text-xs">
+            <p className="font-bold text-white flex items-center gap-1.5">
+              <span>{cellUploadProgress.pmoId}</span>
+              <span className="text-sky-400">•</span>
+              <span className="text-sky-300">{cellUploadProgress.slotLabel}</span>
+            </p>
+            <p className="text-[11px] text-slate-300 mt-0.5">{cellUploadProgress.stage}</p>
+          </div>
+          <span className="font-mono font-bold text-sky-400 text-xs ml-2">
+            {cellUploadProgress.pct}%
+          </span>
+        </div>
+      )}
     </div>
   );
 };

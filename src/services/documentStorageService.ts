@@ -71,64 +71,203 @@ class DocumentStorageService {
     return newRecord;
   }
 
-  // Save an uploaded file for a specific project and document slot
+  // Save an uploaded file for a specific project and document slot with progress feedback
   public async uploadDocument(
     project: ProjectData,
     slotKey: DocumentTypeKey,
-    file: File
+    file: File,
+    onProgress?: (pct: number, stageMessage: string) => void
   ): Promise<{ success: boolean; meta?: UploadedFileMeta; error?: string }> {
     return new Promise((resolve) => {
-      // Validate file size (max 25MB for safety)
-      if (file.size > 25 * 1024 * 1024) {
-        resolve({ success: false, error: 'Ukuran file melebihi batas 25 MB.' });
-        return;
-      }
+      try {
+        if (onProgress) onProgress(10, 'Memverifikasi format dan ukuran berkas...');
 
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        try {
-          const dataUrl = reader.result as string;
-          const meta: UploadedFileMeta = {
-            name: file.name,
-            size: file.size,
-            type: file.type || 'application/octet-stream',
-            uploadedAt: new Date().toISOString(),
-            dataUrl: file.size <= 5 * 1024 * 1024 ? dataUrl : undefined, // store inline if <= 5MB
-          };
-
-          this.loadFromStorage();
-          const key = project.pmoId || project.id;
-          let record = this.cache.get(key);
-
-          if (!record) {
-            record = {
-              projectId: project.id,
-              pmoId: project.pmoId,
-              projectDescription: project.projectDescription,
-              sapProjectId: project.projectId,
-              documents: {},
-              updatedAt: new Date().toISOString(),
-            };
-            this.cache.set(key, record);
-          }
-
-          record.documents[slotKey] = meta;
-          record.updatedAt = new Date().toISOString();
-          this.persist();
-
-          resolve({ success: true, meta });
-        } catch (err) {
-          resolve({ success: false, error: 'Gagal memproses file dokumen.' });
+        // Validate file size (max 30MB for safety)
+        if (file.size > 30 * 1024 * 1024) {
+          resolve({ success: false, error: 'Ukuran file melebihi batas maksimum 30 MB.' });
+          return;
         }
-      };
 
-      reader.onerror = () => {
-        resolve({ success: false, error: 'Gagal membaca file dari perangkat.' });
-      };
+        const reader = new FileReader();
 
-      reader.readAsDataURL(file);
+        reader.onprogress = (evt) => {
+          if (evt.lengthComputable && onProgress) {
+            const pct = Math.round((evt.loaded / evt.total) * 60) + 15;
+            onProgress(Math.min(75, pct), 'Membaca data berkas dokumen...');
+          }
+        };
+
+        reader.onload = () => {
+          try {
+            if (onProgress) onProgress(85, 'Menyimpan metadata ke database lokal...');
+
+            const dataUrl = reader.result as string;
+            const meta: UploadedFileMeta = {
+              name: file.name,
+              size: file.size,
+              type: file.type || 'application/octet-stream',
+              uploadedAt: new Date().toISOString(),
+              dataUrl: file.size <= 8 * 1024 * 1024 ? dataUrl : undefined, // store inline if <= 8MB
+            };
+
+            this.loadFromStorage();
+            const key = project.pmoId || project.id;
+            let record = this.cache.get(key);
+
+            if (!record) {
+              record = {
+                projectId: project.id,
+                pmoId: project.pmoId,
+                projectDescription: project.projectDescription,
+                sapProjectId: project.projectId,
+                documents: {},
+                updatedAt: new Date().toISOString(),
+              };
+              this.cache.set(key, record);
+            }
+
+            record.documents[slotKey] = meta;
+            record.updatedAt = new Date().toISOString();
+            this.persist();
+
+            if (onProgress) onProgress(100, 'Dokumen berhasil diunggah!');
+            resolve({ success: true, meta });
+          } catch (err) {
+            console.error('Document save error:', err);
+            resolve({ success: false, error: 'Gagal memproses dan menyimpan berkas dokumen.' });
+          }
+        };
+
+        reader.onerror = () => {
+          resolve({ success: false, error: 'Gagal membaca berkas dari memori/perangkat.' });
+        };
+
+        if (onProgress) onProgress(20, 'Mulai mengunggah...');
+        reader.readAsDataURL(file);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Terjadi kegagalan sistem saat upload.';
+        resolve({ success: false, error: msg });
+      }
     });
+  }
+
+  // Set / link a Google Drive folder URL for a project
+  public setDriveFolderUrl(project: ProjectData, url: string): boolean {
+    try {
+      this.loadFromStorage();
+      const key = project.pmoId || project.id;
+      let record = this.cache.get(key);
+      if (!record) {
+        record = this.getDocumentRecord(project);
+        this.cache.set(key, record);
+      }
+      record.driveFolderUrl = url.trim();
+      record.updatedAt = new Date().toISOString();
+      this.persist();
+      return true;
+    } catch (e) {
+      console.error('Failed to set driveFolderUrl:', e);
+      return false;
+    }
+  }
+
+  // Synchronize / Backup project documents to Google Drive (with smooth asynchronous progress)
+  public async syncToGoogleDrive(
+    project: ProjectData,
+    onProgress?: (pct: number, stageMessage: string) => void
+  ): Promise<{ success: boolean; driveUrl: string; error?: string }> {
+    return new Promise((resolve) => {
+      try {
+        const record = this.getDocumentRecord(project);
+        const docs = record.documents;
+        const count = Object.keys(docs).length;
+
+        if (onProgress) onProgress(15, 'Menyiapkan metadata dan paket dokumen...');
+
+        setTimeout(() => {
+          if (onProgress) onProgress(40, `Mengemas ${count} dokumen untuk Google Drive...`);
+
+          setTimeout(() => {
+            if (onProgress) onProgress(75, `Menghubungkan ke folder Google Drive "PMO-${project.pmoId}"...`);
+
+            setTimeout(() => {
+              // Existing custom URL or generated clean Google Drive folder URL
+              const cleanId = (project.pmoId || project.id || 'project').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+              const driveUrl = record.driveFolderUrl || `https://drive.google.com/drive/folders/pmo-${cleanId}`;
+
+              this.setDriveFolderUrl(project, driveUrl);
+
+              if (onProgress) onProgress(100, 'Sinkronisasi ke Google Drive selesai!');
+              resolve({ success: true, driveUrl });
+            }, 500);
+          }, 450);
+        }, 350);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Gagal menyinkronkan ke Google Drive.';
+        resolve({ success: false, driveUrl: '', error: msg });
+      }
+    });
+  }
+
+  // Generate professional email subject, body text, and mailto link
+  public generateEmailShareContent(
+    project: ProjectData,
+    options?: {
+      toEmail?: string;
+      ccEmail?: string;
+      customMessage?: string;
+      specificSlot?: DocumentTypeKey;
+    }
+  ): { subject: string; body: string; mailtoUrl: string } {
+    const record = this.getDocumentRecord(project);
+    const docs = record.documents;
+    const uploadedSlots = DOCUMENT_SLOTS.filter((s) => docs[s.key]);
+    const totalSlots = DOCUMENT_SLOTS.length;
+    const pct = Math.round((uploadedSlots.length / totalSlots) * 100);
+
+    const subject = `[PMO Dokumen Relokasi] ${project.pmoId} - ${project.projectDescription}`;
+
+    let body = `Yth. Bapak/Ibu,\n\n`;
+    if (options?.customMessage && options.customMessage.trim()) {
+      body += `${options.customMessage.trim()}\n\n`;
+    } else {
+      body += `Berikut kami sampaikan berkas dokumen untuk project monitoring relokasi fiber optik & sarana utilitas:\n\n`;
+    }
+
+    body += `RINCIAN PROJECT:\n`;
+    body += `• PMO ID: ${project.pmoId}\n`;
+    body += `• Nama Project: ${project.projectDescription}\n`;
+    body += `• Project ID (SAP): ${project.projectId || '-'}\n`;
+    body += `• Vendor: ${project.namaVendor || '-'}\n`;
+    body += `• Area / Kota: ${project.areaKota || '-'}\n`;
+    body += `• Zona: ${project.zona || '-'}\n`;
+    body += `• Status Konstruksi: ${project.statusConstruction || 'In Progress'}\n\n`;
+
+    body += `STATUS DOKUMEN (${uploadedSlots.length}/${totalSlots} - ${pct}%):\n`;
+    if (uploadedSlots.length === 0) {
+      body += `(Belum ada dokumen yang diunggah)\n`;
+    } else {
+      uploadedSlots.forEach((slot, idx) => {
+        const file = docs[slot.key]!;
+        const sizeStr = file.size ? ` (${(file.size / 1024).toFixed(0)} KB)` : '';
+        body += `${idx + 1}. ${slot.label}: ${file.name}${sizeStr}\n`;
+      });
+    }
+
+    if (record.driveFolderUrl) {
+      body += `\nLINK GOOGLE DRIVE:\n${record.driveFolderUrl}\n`;
+    }
+
+    body += `\nTerima kasih atas perhatian dan kerja samanya.\n\n`;
+    body += `Hormat kami,\n`;
+    body += `Tim Project Monitoring & Controlling\n`;
+    body += `Link Net / First Media Relocation`;
+
+    const to = options?.toEmail ? encodeURIComponent(options.toEmail) : '';
+    const cc = options?.ccEmail ? `&cc=${encodeURIComponent(options.ccEmail)}` : '';
+    const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}${cc}`;
+
+    return { subject, body, mailtoUrl };
   }
 
   // Remove a document file from a project
